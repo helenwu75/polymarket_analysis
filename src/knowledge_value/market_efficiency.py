@@ -334,8 +334,20 @@ class MarketEfficiencyAnalyzer:
         """
         if market_ids is None:
             # If no specific markets are provided, select a sample based on volume
-            markets_df = self.main_df.sort_values('volumeNum', ascending=False)
-            market_ids = markets_df['market_id'].unique()[:max_markets]
+            id_column = None
+            if 'market_id' in self.main_df.columns:
+                id_column = 'market_id'
+            elif 'id' in self.main_df.columns:
+                id_column = 'id'
+            else:
+                # Fallback to first column if neither exists
+                id_column = self.main_df.columns[0]
+                print(f"Warning: Could not find 'market_id' or 'id' column. Using {id_column} instead.")
+            
+            # Sort by volume if volumeNum exists, otherwise use the first column
+            sort_column = 'volumeNum' if 'volumeNum' in self.main_df.columns else self.main_df.columns[0]
+            markets_df = self.main_df.sort_values(sort_column, ascending=False)
+            market_ids = markets_df[id_column].unique()[:max_markets]
         
         results = {}
         
