@@ -371,66 +371,160 @@ class MarketEfficiencyAnalyzer:
         results = {}
         
         for market_id in tqdm(market_ids, desc="Analyzing weak-form efficiency"):
-            market_result = {'market_id': market_id}
-            
-            # Preprocess market data
-            market_data = self.preprocess_market_data(market_id)
-            if market_data is None or len(market_data) < 30:
+            try:
+                market_result = {'market_id': market_id}
+                
+                # Preprocess market data
+                market_data = self.preprocess_market_data(market_id)
+                if market_data is None or len(market_data) < 30:
+                    print(f"Skipping market {market_id}: insufficient data")
+                    continue
+                    
+                # Store market metadata
+                # Get market info using ID column
+                id_column = None
+                if 'market_id' in self.main_df.columns:
+                    id_column = 'market_id'
+                elif 'id' in self.main_df.columns:
+                    id_column = 'id'
+                else:
+                    id_column = self.main_df.columns[0]
+                
+                # Find the row for this market safely
+                market_rows = self.main_df[self.main_df[id_column] == market_id]
+                if len(market_rows) == 0:
+                    # Try string comparison if numerical comparison fails
+                    market_rows = self.main_df[self.main_df[id_column].astype(str) == str(market_id)]
+                
+                if len(market_rows) > 0:
+                    market_info = market_rows.iloc[0]
+                    
+                    # Get values safely using dictionary access or attribute access with fallback
+                    try:
+                        if hasattr(market_info, 'get'):  # If it's dictionary-like
+                            market_result['event_type'] = market_info.get('event_electionType', 'Unknown')
+                            market_result['country'] = market_info.get('event_country', 'Unknown')
+                            market_result['volume'] = market_info.get('volumeNum', 0)
+                            market_result['duration_days'] = market_info.get('market_duration_days', 0)
+                        else:  # If it's Series-like
+                            market_result['event_type'] = market_info['event_electionType'] if 'event_electionType' in market_info else 'Unknown'
+                            market_result['country'] = market_info['event_country'] if 'event_country' in market_info else 'Unknown'
+                            market_result['volume'] = market_info['volumeNum'] if 'volumeNum' in market_info else 0
+                            market_result['duration_days'] = market_info['market_duration_days'] if 'market_duration_days' in market_info else 0
+                    except (KeyError, TypeError) as e:
+                        print(f"Error retrieving market metadata for {market_id}: {e}")
+                        # Set defaults
+                        market_result['event_type'] = 'Unknown'
+                        market_result['country'] = 'Unknown'
+                        market_result['volume'] = 0
+                        market_result['duration_days'] = 0
+                
+                # Run ADF tests
+                market_result['adf_price'] = self.run_adf_test(market_data['price'], 'price')
+                market_result['adf_return'] = self.run_adf_test(market_data['log_return'], 'return')
+                
+                # Run autocorrelation tests
+                market_result['autocorrelation'] = self.run_autocorrelation_tests(
+                    market_data['log_return'], market_id
+                )
+                
+                # Run variance ratio test
+                market_result['variance_ratio'] = self.run_variance_ratio_test(
+                    market_data['log_return'], market_id
+                )
+                
+                # Run runs test
+                market_result['runs_test'] = self.run_runs_test(market_data['log_return'])
+                
+                # Run time-varying efficiency analysis - pass both returns and market_id
+                market_result['time_varying'] = self.analyze_time_varying_efficiency(
+                    market_data['log_return'], market_id
+                )
+                
+                # Fit AR model
+                market_result['ar_model'] = self.fit_ar_model(
+                    market_data['log_return'], market_id
+                )
+                
+                # Store results
+                results[market_id] = market_result
+                
+            except Exception as e:
+                print(f"Error analyzing market {market_id}: {e}")
                 continue
-                
-            # Store market metadata
-            # Get market info using ID column
-            id_column = None
-            if 'market_id' in self.main_df.columns:
-                id_column = 'market_id'
-            elif 'id' in self.main_df.columns:
-                id_column = 'id'
-            else:
-                id_column = self.main_df.columns[0]
-            
-            market_rows = self.main_df[self.main_df[id_column] == market_id]
-            if len(market_rows) == 0:
-                # Try string comparison
-                market_rows = self.main_df[self.main_df[id_column].astype(str) == str(market_id)]
-            
-            if len(market_rows) > 0:
-                market_info = market_rows.iloc[0]
-                
-                # Get values safely
-                market_result['event_type'] = market_info.get('event_electionType', 'Unknown') if hasattr(market_info, 'get') else market_info.get('event_electionType', 'Unknown')
-                market_result['country'] = market_info.get('event_country', 'Unknown') if hasattr(market_info, 'get') else market_info.get('event_country', 'Unknown')
-                market_result['volume'] = market_info.get('volumeNum', 0) if hasattr(market_info, 'get') else market_info.get('volumeNum', 0)
-                market_result['duration_days'] = market_info.get('market_duration_days', 0) if hasattr(market_info, 'get') else market_info.get('market_duration_days', 0)
-            
-            # Run ADF tests
-            market_result['adf_price'] = self.run_adf_test(market_data['price'], 'price')
-            market_result['adf_return'] = self.run_adf_test(market_data['log_return'], 'return')
-            
-            # Run autocorrelation tests
-            market_result['autocorrelation'] = self.run_autocorrelation_tests(
-                market_data['log_return'], market_id
-            )
-            
-            # Run variance ratio test
-            market_result['variance_ratio'] = self.run_variance_ratio_test(
-                market_data['log_return'], market_id
-            )
-            
-            # Run runs test
-            market_result['runs_test'] = self.run_runs_test(market_data['log_return'])
-            
-            # Run time-varying efficiency analysis
-            market_result['time_varying'] = self.analyze_time_varying_efficiency(market_data['log_return'])
-            
-            # Fit AR model
-            market_result['ar_model'] = self.fit_ar_model(
-                market_data['log_return'], market_id
-            )
-            
-            # Store results
-            results[market_id] = market_result
+        
+        # Summarize results
+        if results:
+            self._summarize_weak_form_results(results)
         
         return results
+
+    def _summarize_weak_form_results(self, results):
+        """Print a summary of weak-form efficiency results"""
+        if not results:
+            print("No results to summarize")
+            return
+        
+        total_markets = len(results)
+        
+        # Count key metrics
+        ar_significant = sum(1 for r in results.values() if r.get('ar_model', {}).get('significant', False))
+        adf_price_stationary = sum(1 for r in results.values() if r.get('adf_price', {}).get('is_stationary', False))
+        adf_return_stationary = sum(1 for r in results.values() if r.get('adf_return', {}).get('is_stationary', False))
+        runs_random = sum(1 for r in results.values() if r.get('runs_test', {}).get('is_random', True))
+        
+        # Count variance ratio results
+        vr_mean_reversion = 0
+        vr_momentum = 0
+        vr_random_walk = 0
+        
+        for r in results.values():
+            vr = r.get('variance_ratio', {})
+            for period_result in vr.values():
+                if period_result.get('interpretation') == 'Mean Reversion':
+                    vr_mean_reversion += 1
+                    break  # Count market once
+            for period_result in vr.values():
+                if period_result.get('interpretation') == 'Momentum':
+                    vr_momentum += 1
+                    break  # Count market once
+            for period_result in vr.values():
+                if period_result.get('interpretation') == 'Random Walk':
+                    vr_random_walk += 1
+                    break  # Count market once
+        
+        # Print summary
+        print("\n" + "="*50)
+        print(f"WEAK-FORM EFFICIENCY RESULTS SUMMARY ({total_markets} markets)")
+        print("="*50)
+        
+        print(f"\nPrice stationarity: {adf_price_stationary} markets ({adf_price_stationary/total_markets*100:.1f}%)")
+        print(f"Return stationarity: {adf_return_stationary} markets ({adf_return_stationary/total_markets*100:.1f}%)")
+        print(f"Significant AR(1): {ar_significant} markets ({ar_significant/total_markets*100:.1f}%)")
+        print(f"Random by runs test: {runs_random} markets ({runs_random/total_markets*100:.1f}%)")
+        
+        print("\nVariance Ratio Results:")
+        print(f"  Mean Reversion: {vr_mean_reversion} markets ({vr_mean_reversion/total_markets*100:.1f}%)")
+        print(f"  Momentum: {vr_momentum} markets ({vr_momentum/total_markets*100:.1f}%)")
+        print(f"  Random Walk: {vr_random_walk} markets ({vr_random_walk/total_markets*100:.1f}%)")
+        
+        # Group by market type if available
+        event_types = set()
+        for r in results.values():
+            if 'event_type' in r and r['event_type'] != 'Unknown':
+                event_types.add(r['event_type'])
+        
+        if event_types:
+            print("\nEfficiency by Market Type:")
+            for event_type in sorted(event_types):
+                type_markets = [r for r in results.values() if r.get('event_type') == event_type]
+                type_count = len(type_markets)
+                if type_count < 5:  # Skip if too few markets
+                    continue
+                    
+                type_ar_significant = sum(1 for r in type_markets if r.get('ar_model', {}).get('significant', False))
+                
+                print(f"  {event_type} ({type_count} markets): {type_ar_significant/type_count*100:.1f}% show inefficiency")
     
     def _aggregate_weak_form_results(self, market_results):
         """Aggregate weak-form efficiency results across markets."""
@@ -680,13 +774,13 @@ class MarketEfficiencyAnalyzer:
         # Count runs
         runs = 1
         for i in range(1, len(binary_seq)):
-            if binary_seq[i] != binary_seq[i-1]:
+            if binary_seq.iloc[i] != binary_seq.iloc[i-1]:  # Use iloc for positional indexing
                 runs += 1
         
         # Calculate expected runs and variance
         n = len(binary_seq)
-        n1 = sum(binary_seq)
-        n0 = n - n1
+        n1 = binary_seq.sum()  # Count of 1s
+        n0 = n - n1  # Count of 0s
         
         if n0 == 0 or n1 == 0:  # All returns are positive or negative
             return {
@@ -711,7 +805,8 @@ class MarketEfficiencyAnalyzer:
             'p_value': p_value,
             'is_random': p_value >= 0.05  # Null hypothesis is randomness
         }
-    def analyze_time_varying_efficiency(self, returns):
+
+    def analyze_time_varying_efficiency(self, returns, market_id=None):
         """
         Analyze how efficiency changes over time by dividing the returns series 
         into early, middle, and late periods.
@@ -720,6 +815,8 @@ class MarketEfficiencyAnalyzer:
         -----------
         returns : pd.Series
             Series of log returns
+        market_id : str, optional
+            ID of the market for additional metadata (if available)
             
         Returns:
         --------
@@ -764,8 +861,8 @@ class MarketEfficiencyAnalyzer:
                     'p_value': ar1_pvalue,
                     'significant': ar1_pvalue < 0.05
                 }
-            except:
-                pass
+            except Exception as e:
+                print(f"Error fitting AR model for period {period_name}: {e}")
             
             results[period_name] = {
                 'significant_acf': significant_acf,
@@ -778,7 +875,7 @@ class MarketEfficiencyAnalyzer:
         if 'early' in results and 'late' in results:
             results['efficiency_change'] = {
                 'acf_change': results['early']['significant_acf'] != results['late']['significant_acf'],
-                'volatility_change': (results['late']['return_volatility'] / results['early']['return_volatility']) - 1
+                'volatility_change': (results['late']['return_volatility'] / results['early']['return_volatility']) - 1 if results['early']['return_volatility'] > 0 else 0
             }
             
             if results['early'].get('ar1') and results['late'].get('ar1'):
