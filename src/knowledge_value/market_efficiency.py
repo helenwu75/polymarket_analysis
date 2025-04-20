@@ -20,6 +20,12 @@ from statsmodels.tsa.stattools import grangercausalitytests
 import warnings
 import os
 from tqdm import tqdm
+from dotenv import load_dotenv
+import os
+load_dotenv()
+print(os.getenv('PYTHONPATH'))
+
+
 
 # Import existing utility functions
 from src.utils.data_loader import load_main_dataset, load_trade_data
@@ -79,17 +85,30 @@ class MarketEfficiencyAnalyzer:
             return None
         
         # Ensure timestamp is a datetime type
-        trades_df['timestamp'] = pd.to_datetime(trades_df['timestamp'])
+        if not pd.api.types.is_datetime64_any_dtype(trades_df['timestamp']):
+            trades_df['timestamp'] = pd.to_datetime(trades_df['timestamp'])
         
         # Sort by timestamp
         trades_df = trades_df.sort_values('timestamp')
+        
+        # Ensure price is numeric
+        if 'price' in trades_df.columns:
+            trades_df['price'] = pd.to_numeric(trades_df['price'], errors='coerce')
+        elif 'price_num' in trades_df.columns:
+            trades_df['price'] = pd.to_numeric(trades_df['price_num'], errors='coerce')
+        else:
+            print(f"No price column found for market {market_id}")
+            return None
+        
+        # Drop rows with NaN prices
+        trades_df = trades_df.dropna(subset=['price'])
         
         # Resample to regular intervals
         trades_df = trades_df.set_index('timestamp')
         price_series = trades_df['price'].resample(resample).last()
         
-        # Fill missing values using forward fill
-        price_series = price_series.fillna(method='ffill')
+        # Fill missing values using forward fill (using ffill instead of method='ffill')
+        price_series = price_series.ffill()
         
         # Calculate log returns
         log_returns = np.log(price_series / price_series.shift(1))
@@ -104,7 +123,7 @@ class MarketEfficiencyAnalyzer:
         result_df = result_df.dropna()
         
         return result_df
-    
+        
     def run_autocorrelation_tests(self, returns, market_id, lags=[60, 360, 1440]):
         """
         Run ACF/PACF tests on return series.
@@ -162,6 +181,7 @@ class MarketEfficiencyAnalyzer:
             plt.close()
         
         return results
+    
     
     def run_adf_test(self, series, series_type='price'):
         """
@@ -318,7 +338,7 @@ class MarketEfficiencyAnalyzer:
     
     def analyze_weak_form_efficiency(self, market_ids=None, max_markets=100):
         """
-        Analyze weak-form efficiency for selected markets.
+        Analyze weak-form efficiency for selected markets with expanded tests.
         
         Parameters:
         -----------
@@ -333,19 +353,18 @@ class MarketEfficiencyAnalyzer:
             Dictionary with weak-form efficiency results
         """
         if market_ids is None:
-            # If no specific markets are provided, select a sample based on volume
+            # Determine ID column
             id_column = None
             if 'market_id' in self.main_df.columns:
                 id_column = 'market_id'
             elif 'id' in self.main_df.columns:
                 id_column = 'id'
             else:
-                # Fallback to first column if neither exists
                 id_column = self.main_df.columns[0]
-                print(f"Warning: Could not find 'market_id' or 'id' column. Using {id_column} instead.")
+                print(f"Warning: Using {id_column} as market ID column")
             
-            # Sort by volume if volumeNum exists, otherwise use the first column
-            sort_column = 'volumeNum' if 'volumeNum' in self.main_df.columns else self.main_df.columns[0]
+            # Sort by volume if available
+            sort_column = 'volumeNum' if 'volumeNum' in self.main_df.columns else id_column
             markets_df = self.main_df.sort_values(sort_column, ascending=False)
             market_ids = markets_df[id_column].unique()[:max_markets]
         
@@ -360,29 +379,48 @@ class MarketEfficiencyAnalyzer:
                 continue
                 
             # Store market metadata
-            market_info = self.main_df[self.main_df['market_id'] == market_id].iloc[0]
-            market_result['event_type'] = market_info.get('event_electionType', 'Unknown')
-            market_result['country'] = market_info.get('event_country', 'Unknown')
-            market_result['volume'] = market_info.get('volumeNum', 0)
-            market_result['duration_days'] = market_info.get('market_duration_days', 0)
+            # Get market info using ID column
+            id_column = None
+            if 'market_id' in self.main_df.columns:
+                id_column = 'market_id'
+            elif 'id' in self.main_df.columns:
+                id_column = 'id'
+            else:
+                id_column = self.main_df.columns[0]
+            
+            market_rows = self.main_df[self.main_df[id_column] == market_id]
+            if len(market_rows) == 0:
+                # Try string comparison
+                market_rows = self.main_df[self.main_df[id_column].astype(str) == str(market_id)]
+            
+            if len(market_rows) > 0:
+                market_info = market_rows.iloc[0]
+                
+                # Get values safely
+                market_result['event_type'] = market_info.get('event_electionType', 'Unknown') if hasattr(market_info, 'get') else market_info.get('event_electionType', 'Unknown')
+                market_result['country'] = market_info.get('event_country', 'Unknown') if hasattr(market_info, 'get') else market_info.get('event_country', 'Unknown')
+                market_result['volume'] = market_info.get('volumeNum', 0) if hasattr(market_info, 'get') else market_info.get('volumeNum', 0)
+                market_result['duration_days'] = market_info.get('market_duration_days', 0) if hasattr(market_info, 'get') else market_info.get('market_duration_days', 0)
+            
+            # Run ADF tests
+            market_result['adf_price'] = self.run_adf_test(market_data['price'], 'price')
+            market_result['adf_return'] = self.run_adf_test(market_data['log_return'], 'return')
             
             # Run autocorrelation tests
             market_result['autocorrelation'] = self.run_autocorrelation_tests(
                 market_data['log_return'], market_id
             )
             
-            # Run ADF tests
-            market_result['adf_price'] = self.run_adf_test(
-                market_data['price'], 'price'
-            )
-            market_result['adf_return'] = self.run_adf_test(
-                market_data['log_return'], 'return'
-            )
-            
-            # Run variance ratio tests
+            # Run variance ratio test
             market_result['variance_ratio'] = self.run_variance_ratio_test(
                 market_data['log_return'], market_id
             )
+            
+            # Run runs test
+            market_result['runs_test'] = self.run_runs_test(market_data['log_return'])
+            
+            # Run time-varying efficiency analysis
+            market_result['time_varying'] = self.analyze_time_varying_efficiency(market_data['log_return'])
             
             # Fit AR model
             market_result['ar_model'] = self.fit_ar_model(
@@ -391,9 +429,6 @@ class MarketEfficiencyAnalyzer:
             
             # Store results
             results[market_id] = market_result
-            
-        # Aggregate results
-        self.results['weak_form'] = self._aggregate_weak_form_results(results)
         
         return results
     
@@ -566,6 +601,192 @@ class MarketEfficiencyAnalyzer:
         
         return aggregate
     
+    def run_variance_ratio_test(self, returns, market_id, periods=[1, 5, 15, 60]):
+        """
+        Run variance ratio test to check if variance scales linearly with time.
+        
+        Parameters:
+        -----------
+        returns : pd.Series
+            Series of log returns
+        market_id : str
+            ID of the market for labeling results
+        periods : list
+            List of periods to test
+            
+        Returns:
+        --------
+        dict
+            Dictionary with variance ratio results
+        """
+        results = {}
+        
+        # Calculate variance for base period (typically 1-minute)
+        base_period = periods[0]
+        base_var = returns.var()
+        
+        for period in periods[1:]:
+            # Skip if we don't have enough data
+            if len(returns) < period * 10:
+                continue
+                
+            # Aggregate returns for longer period
+            agg_returns = returns.rolling(window=period).sum()
+            agg_returns = agg_returns[~np.isnan(agg_returns)]
+            
+            if len(agg_returns) <= 1:
+                continue
+                
+            # Calculate variance
+            period_var = agg_returns.var()
+            
+            # Calculate variance ratio
+            var_ratio = period_var / (period * base_var)
+            
+            # Random walk hypothesis: var_ratio should be close to 1
+            # Calculate z-statistic (simplified)
+            n = len(returns)
+            std_error = np.sqrt(2 * (2 * period - 1) * (period - 1) / (3 * period * n))
+            z_stat = (var_ratio - 1) / std_error
+            p_value = 2 * (1 - abs(np.exp(-0.5 * z_stat**2) / np.sqrt(2 * np.pi)))
+            
+            results[f"{period}min"] = {
+                'variance_ratio': var_ratio,
+                'z_statistic': z_stat,
+                'p_value': p_value,
+                'significant': p_value < 0.05,
+                'interpretation': 'Mean Reversion' if var_ratio < 1 else 'Momentum' if var_ratio > 1 else 'Random Walk'
+            }
+        
+            return results
+        
+    def run_runs_test(self, returns):
+        """
+        Run a runs test to check for non-random patterns in returns.
+        
+        Parameters:
+        -----------
+        returns : pd.Series
+            Series of log returns
+            
+        Returns:
+        --------
+        dict
+            Dictionary with runs test results
+        """
+        # Convert returns to binary sequence (1 for positive, 0 for negative)
+        binary_seq = (returns > 0).astype(int)
+        
+        # Count runs
+        runs = 1
+        for i in range(1, len(binary_seq)):
+            if binary_seq[i] != binary_seq[i-1]:
+                runs += 1
+        
+        # Calculate expected runs and variance
+        n = len(binary_seq)
+        n1 = sum(binary_seq)
+        n0 = n - n1
+        
+        if n0 == 0 or n1 == 0:  # All returns are positive or negative
+            return {
+                'runs': runs,
+                'expected_runs': np.nan,
+                'z_statistic': np.nan,
+                'p_value': np.nan,
+                'is_random': False
+            }
+        
+        expected_runs = 1 + 2 * n1 * n0 / n
+        std_runs = np.sqrt(2 * n1 * n0 * (2 * n1 * n0 - n) / (n**2 * (n-1)))
+        
+        # Calculate z-statistic
+        z_stat = (runs - expected_runs) / std_runs
+        p_value = 2 * (1 - abs(np.exp(-0.5 * z_stat**2) / np.sqrt(2 * np.pi)))
+        
+        return {
+            'runs': runs,
+            'expected_runs': expected_runs,
+            'z_statistic': z_stat,
+            'p_value': p_value,
+            'is_random': p_value >= 0.05  # Null hypothesis is randomness
+        }
+    def analyze_time_varying_efficiency(self, returns):
+        """
+        Analyze how efficiency changes over time by dividing the returns series 
+        into early, middle, and late periods.
+        
+        Parameters:
+        -----------
+        returns : pd.Series
+            Series of log returns
+            
+        Returns:
+        --------
+        dict
+            Dictionary with time-varying efficiency results
+        """
+        if len(returns) < 90:  # Need enough data to divide
+            return None
+        
+        # Divide into three periods
+        period_size = len(returns) // 3
+        early_returns = returns.iloc[:period_size]
+        mid_returns = returns.iloc[period_size:2*period_size]
+        late_returns = returns.iloc[2*period_size:]
+        
+        # Test each period
+        periods = {
+            'early': early_returns,
+            'middle': mid_returns,
+            'late': late_returns
+        }
+        
+        results = {}
+        
+        for period_name, period_returns in periods.items():
+            if len(period_returns) < 30:  # Skip if not enough data
+                continue
+            
+            # Run efficiency tests
+            acf_values = acf(period_returns, nlags=5, fft=True)
+            significant_acf = any(abs(acf_values[1:]) > 1.96 / np.sqrt(len(period_returns)))
+            
+            # AR(1) test
+            ar1_result = None
+            try:
+                model = AutoReg(period_returns, lags=1)
+                model_fit = model.fit()
+                ar1_coef = model_fit.params[1] if len(model_fit.params) > 1 else 0
+                ar1_pvalue = model_fit.pvalues[1] if len(model_fit.pvalues) > 1 else 1
+                ar1_result = {
+                    'coefficient': ar1_coef,
+                    'p_value': ar1_pvalue,
+                    'significant': ar1_pvalue < 0.05
+                }
+            except:
+                pass
+            
+            results[period_name] = {
+                'significant_acf': significant_acf,
+                'ar1': ar1_result,
+                'return_volatility': period_returns.std(),
+                'sample_size': len(period_returns)
+            }
+        
+        # Compare early vs late
+        if 'early' in results and 'late' in results:
+            results['efficiency_change'] = {
+                'acf_change': results['early']['significant_acf'] != results['late']['significant_acf'],
+                'volatility_change': (results['late']['return_volatility'] / results['early']['return_volatility']) - 1
+            }
+            
+            if results['early'].get('ar1') and results['late'].get('ar1'):
+                results['efficiency_change']['ar1_significance_change'] = results['early']['ar1']['significant'] != results['late']['ar1']['significant']
+                results['efficiency_change']['ar1_coefficient_change'] = results['late']['ar1']['coefficient'] - results['early']['ar1']['coefficient']
+        
+        return results
+
     def analyze_granger_causality(self, event_id, lags=1):
         """
         Test Granger causality between markets in the same event.
