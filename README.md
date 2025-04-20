@@ -7,7 +7,11 @@ This repository contains code and analysis scripts for examining Polymarket pred
 ```
 polymarket_analysis/
 ├── data/                          # Processed data files
+│   ├── cleaned_election_data.csv  # Main dataset with market features
 │   ├── trades/                    # Directory with trade-level data
+│   │   ├── matched_events/        # Parquet files for matched events
+│   │   ├── market_id_to_question.json # Maps market IDs to question text
+│   │   └── market_tokens.json     # Information about market tokens
 │   └── external/                  # External data (polls, stock market, etc.)
 ├── src/                           # Source code for analyses
 │   ├── knowledge_value/           # Scripts for knowledge value analyses
@@ -47,39 +51,48 @@ polymarket_analysis/
 The repository will include the following analyses:
 
 ### Knowledge Value Analysis
+
 - Price efficiency tests (random walk, autocorrelation)
 - Event studies for major election markets
 - Comparison of market predictions to alternative forecasting methods
 
 ### Financial Value Analysis
+
 - Correlation analysis with traditional financial markets
 - Hedging potential analysis
 
 ### Cultural Value Analysis
+
 - Trader concentration analysis (Gini coefficient)
 - Profit distribution analysis
 - Whale impact analysis
 
 ### Identity Value Analysis
+
 - Trader typology through clustering analysis
 
 ## Getting Started
 
 ### Prerequisites
+
 - Python 3.8+
 - Required packages will be listed in `requirements.txt`
 
 ### Installation
+
 1. Clone this repository
 2. Install dependencies: `pip install -r requirements.txt`
 3. Add your Polymarket data to the appropriate directories
 
 ### Running Analyses
+
 - Individual analyses can be run directly from their respective scripts
 - The `run_all.py` script will execute all analyses in sequence
 
 ## License
+
 [Your chosen license]
 
 ## Author
+
 [Your name]

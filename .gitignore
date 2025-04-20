@@ -37,12 +37,11 @@ env/
 .vscode/
 
 # Result files
-# Uncomment if you want to ignore result files
-# results/**/*.png
-# results/**/*.csv
-# results/**/*.json
-# results/**/*.html
-# results/**/*.pdf
+results/**/*.png
+results/**/*.csv
+results/**/*.json
+results/**/*.html
+results/**/*.pdf
 
 # Environment variables
 .env
@@ -53,5 +52,15 @@ Thumbs.db
 
 # Large data files
 # Uncomment these lines to ignore large data files
-# data/trades/*.parquet
-# data/external/*.csv
+data/trades/*.parquet
+data/external/*.csv
+data/*
+*.csv
+*.parquet
+*.csv
+*.json
+polymarket_analysis/data/*
+data/trades/*
+data/cleaned_election_data.csv
+data/*
+data/cleaned_election_data.csv
