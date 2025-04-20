@@ -57,10 +57,5 @@ data/external/*.csv
 data/*
 *.csv
 *.parquet
-*.csv
 *.json
-polymarket_analysis/data/*
-data/trades/*
-data/cleaned_election_data.csv
-data/*
 data/cleaned_election_data.csv
