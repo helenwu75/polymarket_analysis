@@ -1,0 +1,19 @@
+Analysis of 1048575 Polymarket election markets
+
+Average number of unique traders: 2192.9
+
+Trader concentration Gini coefficient: 0.7214
+
+Trading volume concentration Gini coefficient: 0.9054
+
+Election types with highest trader participation:
+
+-  Presidential Popular Vote: 9918.9 traders (n=18.0)
+
+-  Electoral College: 8277.5 traders (n=6.0)
+
+-  Balance of Power: 6221.7 traders (n=9.0)
+
+Correlation between trader count and prediction accuracy: -0.2031
+
+Interestingly, markets with fewer traders show higher prediction accuracy.

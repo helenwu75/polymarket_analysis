@@ -1,4 +1,5 @@
 import os
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,8 +8,7 @@ from statsmodels.tsa.stattools import acf, pacf, adfuller
 from statsmodels.tsa.ar_model import AutoReg
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.stats.diagnostic import acorr_ljungbox
-import plotly.express as px
-import plotly.graph_objects as go
+from scipy import stats  # Add this import
 from tqdm.auto import tqdm
 from functools import lru_cache
 import warnings
@@ -376,6 +376,8 @@ class MarketEfficiencyAnalyzer:
                 n = len(returns)
                 std_error = np.sqrt(2 * (2 * period - 1) * (period - 1) / (3 * period * n))
                 z_stat = (var_ratio - 1) / std_error
+                
+                # Use scipy.stats for p-value calculation
                 p_value = 2 * (1 - stats.norm.cdf(abs(z_stat)))
                 
                 results[f"{period}min"] = {
@@ -434,6 +436,8 @@ class MarketEfficiencyAnalyzer:
             
             # Calculate z-statistic
             z_stat = (runs - expected_runs) / std_runs
+            
+            # Use scipy.stats for p-value calculation
             p_value = 2 * (1 - stats.norm.cdf(abs(z_stat)))
             
             return {
@@ -449,7 +453,7 @@ class MarketEfficiencyAnalyzer:
                 'error': str(e),
                 'is_random': None
             }
-    
+        
     def fit_ar_model(self, returns, lags=1):
         """
         Fit AR model to return series and evaluate predictability.
