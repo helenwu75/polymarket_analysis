@@ -902,7 +902,8 @@ class MarketEfficiencyAnalyzer:
         """
         # Get all markets in the event
         event_markets = self.main_df[self.main_df['event_id'] == event_id]
-        market_ids = event_markets['market_id'].unique()
+        market_ids = event_markets['id_column'].unique()
+
         
         if len(market_ids) <= 1:
             return None
