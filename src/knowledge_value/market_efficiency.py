@@ -75,6 +75,7 @@ class MarketEfficiencyAnalyzer:
             warnings.warn(f"Error initializing analyzer: {e}")
             self.main_df = None
             self.market_questions = {}
+            
     
     @lru_cache(maxsize=100)
     def preprocess_market_data(self, market_id, resample='1min', verbose=False):
