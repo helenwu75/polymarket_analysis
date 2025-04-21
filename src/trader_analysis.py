@@ -331,6 +331,392 @@ def analyze_trader_concentration(market_data, min_markets=5, save_path='results/
         'by_country': country_concentration
     }
 
+def identify_whales(market_data, trade_data, threshold=0.05, method='volume'):
+    """
+    Identify whale traders based on specified criteria
+    
+    Parameters:
+    -----------
+    market_data : pd.DataFrame
+        DataFrame with market data
+    trade_data : pd.DataFrame
+        DataFrame with trade-level data
+    threshold : float
+        Threshold for defining whales (e.g., top 5%)
+    method : str
+        Method for identifying whales ('volume', 'frequency', or 'position_size')
+        
+    Returns:
+    --------
+    dict
+        Dictionary with whale analysis results
+    """
+    # Group trades by trader
+    if 'trader_id' not in trade_data.columns:
+        print("Error: trader_id column not found in trade data")
+        return None
+    
+    # Aggregate by trader based on method
+    if method == 'volume':
+        # Sum trade volume by trader
+        trader_metrics = trade_data.groupby('trader_id')['trade_amount'].sum().reset_index()
+        metric_name = 'total_volume'
+    elif method == 'frequency':
+        # Count trades by trader
+        trader_metrics = trade_data.groupby('trader_id').size().reset_index(name='trade_count')
+        metric_name = 'trade_count'
+    elif method == 'position_size':
+        # Calculate average position size by trader
+        trader_metrics = trade_data.groupby('trader_id')['trade_amount'].mean().reset_index()
+        metric_name = 'avg_position_size'
+    else:
+        print(f"Unknown method: {method}")
+        return None
+    
+    # Sort traders by the metric
+    trader_metrics = trader_metrics.sort_values(metric_name, ascending=False)
+    
+    # Define whales as top traders by threshold
+    whale_count = max(1, int(len(trader_metrics) * threshold))
+    whales = trader_metrics.head(whale_count)
+    
+    # Calculate whale concentration
+    whale_concentration = whales[metric_name].sum() / trader_metrics[metric_name].sum()
+    
+    # Calculate average metric for whales vs non-whales
+    whale_avg = whales[metric_name].mean()
+    non_whale_avg = trader_metrics.iloc[whale_count:][metric_name].mean() if len(trader_metrics) > whale_count else 0
+    
+    return {
+        'whales': whales,
+        'whale_ids': whales['trader_id'].tolist(),
+        'whale_count': whale_count,
+        'total_trader_count': len(trader_metrics),
+        'whale_concentration': whale_concentration,
+        'whale_avg_metric': whale_avg,
+        'non_whale_avg_metric': non_whale_avg,
+        'whale_to_non_whale_ratio': whale_avg / non_whale_avg if non_whale_avg > 0 else float('inf')
+    }
+
+def analyze_whale_impact(market_data, trade_data, whale_ids, min_trades=10):
+    """
+    Analyze the impact of whale trades on market prices
+    
+    Parameters:
+    -----------
+    market_data : pd.DataFrame
+        DataFrame with market data
+    trade_data : pd.DataFrame
+        DataFrame with trade-level data including timestamps and prices
+    whale_ids : list
+        List of whale trader IDs
+    min_trades : int
+        Minimum number of trades required for analysis
+        
+    Returns:
+    --------
+    dict
+        Dictionary with whale impact analysis results
+    """
+    # Filter for markets with sufficient trades
+    market_trade_counts = trade_data.groupby('market_id').size()
+    markets_with_sufficient_trades = market_trade_counts[market_trade_counts >= min_trades].index
+    
+    # If no markets have sufficient trades, return early
+    if len(markets_with_sufficient_trades) == 0:
+        print(f"No markets with at least {min_trades} trades found")
+        return None
+    
+    results = {
+        'markets_analyzed': len(markets_with_sufficient_trades),
+        'whale_price_impact': [],
+        'non_whale_price_impact': [],
+        'whale_followed_ratio': []
+    }
+    
+    # Analyze each market with sufficient trades
+    for market_id in markets_with_sufficient_trades:
+        market_trades = trade_data[trade_data['market_id'] == market_id].sort_values('timestamp')
+        
+        # Separate whale and non-whale trades
+        whale_trades = market_trades[market_trades['trader_id'].isin(whale_ids)]
+        non_whale_trades = market_trades[~market_trades['trader_id'].isin(whale_ids)]
+        
+        if len(whale_trades) == 0 or len(non_whale_trades) == 0:
+            continue
+        
+        # Analyze price impact (simplified)
+        whale_price_changes = []
+        non_whale_price_changes = []
+        whale_followed_count = 0
+        whale_total_count = 0
+        
+        # Calculate average price change after whale trades
+        for i, trade in whale_trades.iterrows():
+            # Get next trade price
+            next_trades = market_trades[market_trades['timestamp'] > trade['timestamp']].head(5)
+            if len(next_trades) > 0:
+                price_change = next_trades.iloc[-1]['price'] - trade['price']
+                whale_price_changes.append(price_change)
+                
+                # Check if non-whales follow whale direction
+                whale_total_count += 1
+                next_non_whale = non_whale_trades[non_whale_trades['timestamp'] > trade['timestamp']].head(3)
+                if len(next_non_whale) > 0:
+                    # Simplified: check if trade direction (buy/sell) matches
+                    if 'trade_direction' in trade and 'trade_direction' in next_non_whale.iloc[0]:
+                        if trade['trade_direction'] == next_non_whale.iloc[0]['trade_direction']:
+                            whale_followed_count += 1
+        
+        # Calculate average price change after non-whale trades
+        for i, trade in non_whale_trades.iterrows():
+            next_trades = market_trades[market_trades['timestamp'] > trade['timestamp']].head(5)
+            if len(next_trades) > 0:
+                price_change = next_trades.iloc[-1]['price'] - trade['price']
+                non_whale_price_changes.append(price_change)
+        
+        # Calculate average price impacts
+        if whale_price_changes:
+            results['whale_price_impact'].append(np.mean(whale_price_changes))
+        if non_whale_price_changes:
+            results['non_whale_price_impact'].append(np.mean(non_whale_price_changes))
+        
+        # Calculate following ratio
+        if whale_total_count > 0:
+            results['whale_followed_ratio'].append(whale_followed_count / whale_total_count)
+    
+    # Calculate summary statistics
+    if results['whale_price_impact']:
+        results['avg_whale_price_impact'] = np.mean(results['whale_price_impact'])
+    if results['non_whale_price_impact']:
+        results['avg_non_whale_price_impact'] = np.mean(results['non_whale_price_impact'])
+    if results['whale_followed_ratio']:
+        results['avg_whale_followed_ratio'] = np.mean(results['whale_followed_ratio'])
+    
+    return results
+
+def run_granger_causality_test(market_id, trade_data, whale_ids, max_lag=5):
+    """
+    Perform Granger causality test to determine if whale trades cause price movements
+    
+    Parameters:
+    -----------
+    market_id : str or int
+        ID of the market to analyze
+    trade_data : pd.DataFrame
+        DataFrame with trade-level data
+    whale_ids : list
+        List of whale trader IDs
+    max_lag : int
+        Maximum number of lags for Granger test
+        
+    Returns:
+    --------
+    dict
+        Dictionary with Granger causality test results
+    """
+    from statsmodels.tsa.stattools import grangercausalitytests
+    
+    # Filter trades for this market
+    market_trades = trade_data[trade_data['market_id'] == market_id].sort_values('timestamp')
+    
+    if len(market_trades) < max_lag + 10:
+        print(f"Insufficient trades for market {market_id}")
+        return None
+    
+    # Create time series by resampling to regular intervals
+    market_trades['timestamp'] = pd.to_datetime(market_trades['timestamp'])
+    market_trades = market_trades.set_index('timestamp')
+    
+    # Resample to 5-minute intervals
+    prices = market_trades['price'].resample('5Min').last().dropna()
+    
+    # Create indicator for whale activity
+    whale_trades = market_trades[market_trades['trader_id'].isin(whale_ids)]
+    whale_activity = whale_trades.groupby(pd.Grouper(freq='5Min')).size()
+    
+    # Align the series
+    aligned_data = pd.concat([prices, whale_activity], axis=1).fillna(0)
+    aligned_data.columns = ['price', 'whale_activity']
+    
+    if len(aligned_data) < max_lag + 10:
+        print(f"Insufficient data points after resampling for market {market_id}")
+        return None
+    
+    # Run Granger causality test
+    try:
+        # Test if whale activity Granger-causes prices
+        gc_result = grangercausalitytests(aligned_data[['price', 'whale_activity']], maxlag=max_lag, verbose=False)
+        
+        # Extract p-values for each lag
+        p_values = {lag: result[0]['ssr_chi2test'][1] for lag, result in gc_result.items()}
+        
+        # Check for significance
+        significant_lags = [lag for lag, p_value in p_values.items() if p_value < 0.05]
+        
+        return {
+            'market_id': market_id,
+            'p_values': p_values,
+            'significant_lags': significant_lags,
+            'is_significant': len(significant_lags) > 0,
+            'min_p_value': min(p_values.values()) if p_values else None,
+            'best_lag': min(p_values, key=p_values.get) if p_values else None
+        }
+    except Exception as e:
+        print(f"Error running Granger causality test for market {market_id}: {e}")
+        return None
+
+def classify_traders_by_behavior(trade_data, n_clusters=5, random_state=42):
+    """
+    Classify traders into different types based on their behavior patterns
+    
+    Parameters:
+    -----------
+    trade_data : pd.DataFrame
+        DataFrame with trade-level data
+    n_clusters : int
+        Number of clusters to create
+    random_state : int
+        Random seed for reproducibility
+        
+    Returns:
+    --------
+    dict
+        Dictionary with classification results
+    """
+    from sklearn.cluster import KMeans
+    from sklearn.preprocessing import StandardScaler
+    
+    # Ensure we have trader_id column
+    if 'trader_id' not in trade_data.columns:
+        print("Error: trader_id column not found in trade data")
+        return None
+    
+    # Calculate trader features
+    traders = []
+    unique_traders = trade_data['trader_id'].unique()
+    
+    for trader_id in unique_traders:
+        trader_trades = trade_data[trade_data['trader_id'] == trader_id]
+        
+        # Skip traders with too few trades
+        if len(trader_trades) < 3:
+            continue
+        
+        # Calculate basic metrics
+        trade_count = len(trader_trades)
+        
+        # Calculate volume metrics if available
+        avg_trade_size = trader_trades['trade_amount'].mean() if 'trade_amount' in trader_trades.columns else np.nan
+        total_volume = trader_trades['trade_amount'].sum() if 'trade_amount' in trader_trades.columns else np.nan
+        
+        # Calculate timing metrics
+        if 'timestamp' in trader_trades.columns:
+            trader_trades = trader_trades.sort_values('timestamp')
+            time_between_trades = np.diff(trader_trades['timestamp'].astype(np.int64)).mean() / 1e9 if len(trader_trades) > 1 else np.nan
+        else:
+            time_between_trades = np.nan
+        
+        # Calculate directional bias if available
+        if 'trade_direction' in trader_trades.columns:
+            # Assuming 1 = buy, -1 = sell
+            direction_values = trader_trades['trade_direction'].map({'buy': 1, 'sell': -1, 1: 1, -1: -1}).dropna()
+            directional_bias = direction_values.mean() if len(direction_values) > 0 else 0
+        else:
+            directional_bias = 0
+        
+        # Calculate profit metrics if available
+        profit = trader_trades['profit'].sum() if 'profit' in trader_trades.columns else np.nan
+        win_rate = (trader_trades['profit'] > 0).mean() if 'profit' in trader_trades.columns else np.nan
+        
+        # Calculate market diversity
+        market_count = trader_trades['market_id'].nunique() if 'market_id' in trader_trades.columns else 1
+        market_concentration = (trader_trades.groupby('market_id').size() / trade_count).max() if 'market_id' in trader_trades.columns else 1
+        
+        # Store trader features
+        traders.append({
+            'trader_id': trader_id,
+            'trade_count': trade_count,
+            'avg_trade_size': avg_trade_size,
+            'total_volume': total_volume,
+            'time_between_trades': time_between_trades,
+            'directional_bias': directional_bias,
+            'profit': profit,
+            'win_rate': win_rate,
+            'market_count': market_count,
+            'market_concentration': market_concentration
+        })
+    
+    # Convert to DataFrame
+    trader_df = pd.DataFrame(traders)
+    
+    # Handle missing values
+    trader_df = trader_df.fillna(trader_df.mean())
+    
+    # Select features for clustering
+    feature_cols = [col for col in ['trade_count', 'avg_trade_size', 'time_between_trades', 
+                                    'directional_bias', 'market_count', 'market_concentration'] 
+                   if col in trader_df.columns]
+    
+    if len(feature_cols) < 2:
+        print("Error: Insufficient features for clustering")
+        return None
+    
+    # Standardize features
+    scaler = StandardScaler()
+    scaled_features = scaler.fit_transform(trader_df[feature_cols])
+    
+    # Apply clustering
+    kmeans = KMeans(n_clusters=n_clusters, random_state=random_state)
+    trader_df['cluster'] = kmeans.fit_predict(scaled_features)
+    
+    # Analyze clusters
+    cluster_profiles = trader_df.groupby('cluster')[feature_cols].mean()
+    
+    # Determine cluster sizes
+    cluster_sizes = trader_df['cluster'].value_counts().sort_index()
+    cluster_percentages = 100 * cluster_sizes / cluster_sizes.sum()
+    
+    # Add size information to profiles
+    cluster_profiles['count'] = cluster_sizes.values
+    cluster_profiles['percentage'] = cluster_percentages.values
+    
+    # Name clusters based on features
+    cluster_names = {}
+    for cluster_id, profile in cluster_profiles.iterrows():
+        # Start with generic name
+        name = f"Cluster {cluster_id}"
+        
+        # Determine distinguishing features
+        if 'trade_count' in profile and profile['trade_count'] > cluster_profiles['trade_count'].median() * 2:
+            name = "High Frequency Traders"
+        elif 'avg_trade_size' in profile and profile['avg_trade_size'] > cluster_profiles['avg_trade_size'].median() * 2:
+            name = "Whale Traders"
+        elif 'directional_bias' in profile:
+            if profile['directional_bias'] > 0.5:
+                name = "Bullish Traders"
+            elif profile['directional_bias'] < -0.5:
+                name = "Bearish Traders"
+            elif abs(profile['directional_bias']) < 0.2:
+                name = "Market Makers"
+        elif 'market_concentration' in profile and profile['market_concentration'] > 0.8:
+            name = "Market Specialists"
+        elif 'market_count' in profile and profile['market_count'] > cluster_profiles['market_count'].median() * 2:
+            name = "Diversified Traders"
+        
+        cluster_names[cluster_id] = name
+    
+    # Assign names to traders
+    trader_df['trader_type'] = trader_df['cluster'].map(cluster_names)
+    
+    return {
+        'trader_features': trader_df,
+        'cluster_profiles': cluster_profiles,
+        'cluster_names': cluster_names,
+        'feature_importance': {feature: abs(kmeans.cluster_centers_).mean(axis=0)[i] 
+                              for i, feature in enumerate(feature_cols)}
+    }
+
 def analyze_traders(n_markets=None, data_path='data/cleaned_election_data.csv', save_path='results/trader_analysis'):
     """
     Run comprehensive trader analysis
