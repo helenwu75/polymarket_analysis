@@ -1,0 +1,48 @@
+================================================================================
+TRADER ANALYSIS SUMMARY REPORT
+================================================================================
+Generated: 2025-04-21 21:52:45
+
+------------------------------
+TRADER DISTRIBUTION
+------------------------------
+Total Traders: 79,413
+Total Volume: 566,773,089.64
+Avg Trades per Trader: 14.92
+Median Trades per Trader: 3
+
+------------------------------
+WHALE IDENTIFICATION
+------------------------------
+Gini Coefficient: 0.9368
+Whale Threshold: Top 1.0%
+Number of Whales: 794
+
+------------------------------
+TRADER CLASSIFICATION
+------------------------------
+Number of Trader Types: 5
+Trader Types Identified:
+  - Balanced Traders
+  - Balanced Traders
+  - High Frequency Traders
+  - Whale Traders
+  - Balanced Traders
+
+Most Important Features:
+  - trade_count: 17.9164
+  - avg_trade_size: 11.1277
+  - trade_size_volatility: 2.6742
+
+------------------------------
+MARKET DYNAMICS
+------------------------------
+Whale Price Impact: -0.002400
+Non-Whale Price Impact: 0.001828
+Impact Ratio: -1.3132
+
+Price Direction:
+  Whale Positive: 31.29%
+  Whale Negative: 32.82%
+  Non-Whale Positive: 31.67%
+  Non-Whale Negative: 30.66%
