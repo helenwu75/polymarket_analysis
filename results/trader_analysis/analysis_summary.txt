@@ -1,25 +1,20 @@
 ================================================================================
 TRADER ANALYSIS SUMMARY REPORT
 ================================================================================
-Generated: 2025-04-23 01:38:52
+Generated: 2025-04-23 02:07:21
 
 ------------------------------
 TRADER DISTRIBUTION
 ------------------------------
-Total Traders: 79,413
-Total Volume: 566,773,089.64
-Avg Trades per Trader: 14.92
-Median Trades per Trader: 3
+Total Traders: 90,767
+Total Volume: 1,133,546,179.29
+Avg Trades per Trader: 26.11
+Median Trades per Trader: 5
 
 ------------------------------
-MARKET DYNAMICS
+WHALE IDENTIFICATION
 ------------------------------
-Whale Price Impact: -0.002400
-Non-Whale Price Impact: 0.001828
-Impact Ratio: -1.3132
+Gini Coefficient: 0.9484
+Whale Threshold: Top 1.0%
+Number of Whales: 907
 
-Price Direction:
-  Whale Positive: 31.29%
-  Whale Negative: 32.82%
-  Non-Whale Positive: 31.67%
-  Non-Whale Negative: 30.66%
