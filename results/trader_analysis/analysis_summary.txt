@@ -1,7 +1,7 @@
 ================================================================================
 TRADER ANALYSIS SUMMARY REPORT
 ================================================================================
-Generated: 2025-04-21 21:52:45
+Generated: 2025-04-22 18:19:51
 
 ------------------------------
 TRADER DISTRIBUTION
@@ -21,18 +21,16 @@ Number of Whales: 794
 ------------------------------
 TRADER CLASSIFICATION
 ------------------------------
-Number of Trader Types: 5
+Number of Trader Types: 3
 Trader Types Identified:
-  - Balanced Traders
-  - Balanced Traders
   - High Frequency Traders
-  - Whale Traders
-  - Balanced Traders
+  - Retail Traders
+  - Retail Traders
 
 Most Important Features:
-  - trade_count: 17.9164
-  - avg_trade_size: 11.1277
-  - trade_size_volatility: 2.6742
+  - avg_trade_size: 0.6895
+  - trade_count: 0.6677
+  - trade_size_volatility: 0.4394
 
 ------------------------------
 MARKET DYNAMICS

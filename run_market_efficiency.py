@@ -1,22 +1,58 @@
-#!/usr/bin/env python3
-'''
-This script runs the market efficiency analysis on the Polymarket dataset.
-'''
+# run_efficiency_analysis.py
+import os
+import sys
+import argparse
+from datetime import datetime
 
-from src.knowledge_value.market_efficiency import MarketEfficiencyAnalyzer
+# Add project path
+if 'src/knowledge_value' not in sys.path:
+    sys.path.append('src/knowledge_value')
+
+from market_efficiency_analysis import MarketEfficiencyAnalyzer
+from strong_form_efficiency import StrongFormEfficiencyAnalyzer
+from analyze_efficiency import run_comprehensive_analysis, analyze_and_report_results, generate_report
 
 def main():
-    # Initialize the analyzer
-    analyzer = MarketEfficiencyAnalyzer(
-        data_dir='data',
-        results_dir='results/knowledge_value/efficiency'
+    parser = argparse.ArgumentParser(description="Run market efficiency analysis on Polymarket data")
+    parser.add_argument("--data_dir", default="data", help="Directory with the Polymarket data")
+    parser.add_argument("--results_dir", default="results/market_efficiency", help="Directory to save results")
+    parser.add_argument("--markets", type=int, default=30, help="Maximum number of markets to analyze")
+    parser.add_argument("--report", action="store_true", help="Generate a comprehensive report")
+    parser.add_argument("--focus", default=None, choices=["weak", "time", "strong", "all"], 
+                        help="Focus analysis on specific efficiency tests")
+    
+    args = parser.parse_args()
+    
+    # Create unique results directory with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_dir = os.path.join(args.results_dir, f"analysis_{timestamp}")
+    os.makedirs(results_dir, exist_ok=True)
+    
+    print(f"Starting market efficiency analysis at {timestamp}")
+    print(f"Data directory: {args.data_dir}")
+    print(f"Results directory: {results_dir}")
+    print(f"Analyzing up to {args.markets} markets")
+    
+    # Run the analysis
+    results = run_comprehensive_analysis(
+        data_dir=args.data_dir,
+        results_dir=results_dir,
+        market_count=args.markets,
+        verbose=True
     )
     
-    # Run the complete analysis
-    analyzer.run_analysis(
-        max_markets=10,  # Analyze the top 100 markets by volume
-        max_events=2     # Analyze the top 20 events with multiple markets
-    )
+    if results:
+        # Analyze and summarize results
+        summary = analyze_and_report_results(args.data_dir, results_dir)
+        
+        if args.report and summary:
+            # Generate a comprehensive report
+            report_path = generate_report(summary, results_dir)
+            print(f"Analysis complete. Report saved to: {report_path}")
+        else:
+            print(f"Analysis complete. Results saved to: {results_dir}")
+    else:
+        print("Analysis failed to produce results")
 
 if __name__ == "__main__":
     main()
