@@ -389,33 +389,54 @@ class MarketEfficiencyAnalyzer:
         return results
     
     def calculate_efficiency_score(self, results):
-        """Calculate a market efficiency score based on test results"""
+        """Calculate a market efficiency score based on test results with improved parameters"""
         score = 0
         max_points = 0
         
         # 1. Non-stationary price series (random walk)
         if 'adf_price' in results and results['adf_price']:
             max_points += 25
-            if not results['adf_price']['is_stationary']:
-                score += 25  # Random walk is efficient
+            # Higher p-value means more likely to be non-stationary (random walk)
+            p_value = results['adf_price']['p_value']
+            if p_value > 0.05:  # Not stationary (efficient)
+                score += 25
+            elif p_value > 0.01:  # Borderline
+                score += 15
         
         # 2. Stationary returns
         if 'adf_return' in results and results['adf_return']:
             max_points += 25
-            if results['adf_return']['is_stationary']:
-                score += 25  # Stationary returns are expected
+            # Lower p-value means more likely to be stationary
+            p_value = results['adf_return']['p_value']
+            if p_value < 0.01:  # Strongly stationary (efficient)
+                score += 25
+            elif p_value < 0.05:  # Moderately stationary
+                score += 15
         
-        # 3. No autocorrelation in returns
+        # 3. No autocorrelation in returns - more granular scoring
         if 'autocorrelation' in results and results['autocorrelation']:
             max_points += 25
-            if not results['autocorrelation']['has_significant_autocorrelation']:
-                score += 25  # No autocorrelation is efficient
+            sig_lags = results['autocorrelation'].get('significant_lags', [])
+            
+            if not sig_lags:  # No autocorrelation (efficient)
+                score += 25
+            elif len(sig_lags) == 1 and 1 in sig_lags:  # Only lag 1 is significant
+                score += 15
+            elif len(sig_lags) <= 2:  # Limited autocorrelation
+                score += 10
         
-        # 4. Returns not predictable with AR model
+        # 4. Returns not predictable with AR model - more granular scoring
         if 'ar_model' in results and results['ar_model']:
             max_points += 25
-            if not results['ar_model']['is_significant']:
-                score += 25  # Non-predictable returns are efficient
+            p_value = results['ar_model']['p_value']
+            coefficient = abs(results['ar_model']['coefficient'])
+            
+            if p_value > 0.05:  # Not significant (efficient)
+                score += 25
+            elif p_value > 0.01 and coefficient < 0.2:  # Weakly significant with small coefficient
+                score += 15
+            elif coefficient < 0.1:  # Very small coefficient regardless of significance
+                score += 10
         
         # Calculate percentage
         if max_points > 0:

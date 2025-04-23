@@ -63,7 +63,7 @@ def calculate_gini(values):
 
 def plot_lorenz_curve(values, title, ax=None):
     """
-    Plot Lorenz curve for inequality visualization
+    Plot improved Lorenz curve for inequality visualization
     
     Parameters:
     -----------
@@ -80,7 +80,7 @@ def plot_lorenz_curve(values, title, ax=None):
         Axes with Lorenz curve
     """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(10, 8))
     
     # Handle edge cases
     if len(values) <= 1 or values.sum() == 0:
@@ -94,13 +94,54 @@ def plot_lorenz_curve(values, title, ax=None):
     y_lorenz = cumsum / cumsum[-1]
     x_lorenz = np.arange(1, len(values) + 1) / len(values)
     
-    ax.plot(x_lorenz, y_lorenz, label='Lorenz curve')
-    ax.plot([0, 1], [0, 1], 'k--', label='Perfect equality')
-    ax.fill_between(x_lorenz, x_lorenz, y_lorenz, alpha=0.2)
-    ax.set_title(f'Lorenz Curve - {title}')
-    ax.set_xlabel('Cumulative % of traders')
-    ax.set_ylabel(f'Cumulative % of {title}')
-    ax.legend()
+    # Plot the Lorenz curve with better styling
+    ax.plot(x_lorenz, y_lorenz, 'b-', linewidth=2.5, label='Volume distribution')
+    ax.plot([0, 1], [0, 1], 'k--', linewidth=1.5, label='Perfect equality')
+    ax.fill_between(x_lorenz, x_lorenz, y_lorenz, alpha=0.2, color='skyblue')
+    
+    # Calculate Gini coefficient for the title
+    gini = calculate_gini(values)
+    
+    # Add key percentile markers
+    key_percentiles = [0.5, 0.9, 0.95, 0.99]
+    for percentile in key_percentiles:
+        idx = int(len(values) * (1 - percentile))
+        if idx < len(values):
+            # Calculate x and y coordinates for this percentile
+            x = 1 - percentile
+            y = y_lorenz[idx]
+            
+            # Add reference lines
+            ax.plot([x, x], [0, y], 'r--', alpha=0.5)
+            ax.plot([0, x], [y, y], 'r--', alpha=0.5)
+            
+            # Add an annotation
+            ax.annotate(f'Top {percentile*100:.1f}%: {y*100:.1f}%', 
+                       xy=(x, y), xytext=(x + 0.05, y - 0.1),
+                       arrowprops=dict(arrowstyle='->'),
+                       bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8))
+    
+    # Add percentile information as a table
+    table_data = []
+    for pct in [0.01, 0.05, 0.1, 0.5]:
+        idx = int(len(values) * (1 - pct))
+        if idx < len(values):
+            volume_pct = y_lorenz[idx] * 100
+            table_data.append([f"Top {pct*100:.1f}%", f"{volume_pct:.2f}%"])
+    
+    if table_data:
+        table = ax.table(cellText=table_data, 
+                        colLabels=["Trader Group", "Volume %"],
+                        loc='lower right', colWidths=[0.15, 0.15])
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1, 1.5)
+    
+    ax.set_title(f'{title} - Gini Coefficient: {gini:.4f}', fontsize=14, fontweight='bold')
+    ax.set_xlabel('Cumulative % of Traders', fontsize=12)
+    ax.set_ylabel(f'Cumulative % of {title}', fontsize=12)
+    ax.grid(True, alpha=0.3, linestyle='--')
+    ax.legend(loc='upper left')
     
     return ax
 
@@ -192,6 +233,155 @@ def classify_traders(market_data, trader_features, n_clusters=5):
         'cluster_profiles': cluster_profiles,
         'type_summary': type_summary
     }
+def plot_trader_type_distribution(trader_df, save_path=None):
+    """
+    Create an enhanced bar chart visualization of trader types
+    
+    Parameters:
+    -----------
+    trader_df : pd.DataFrame
+        DataFrame with trader classification results
+    save_path : str, optional
+        Path to save the visualization
+    
+    Returns:
+    --------
+    matplotlib.figure.Figure
+        Figure with trader type visualization
+    """
+    if 'trader_type' not in trader_df.columns:
+        print("Error: trader_type column not found in data")
+        return None
+    
+    # Calculate type distribution
+    type_counts = trader_df['trader_type'].value_counts()
+    type_pcts = 100 * type_counts / len(trader_df)
+    
+    # Calculate volume by type if available
+    volume_by_type = None
+    if 'total_volume' in trader_df.columns:
+        volume_by_type = trader_df.groupby('trader_type')['total_volume'].sum()
+        volume_pcts = 100 * volume_by_type / volume_by_type.sum()
+    
+    # Create figure
+    fig, axs = plt.subplots(1, 2 if volume_by_type is not None else 1, figsize=(15, 8))
+    
+    # If only one subplot
+    if volume_by_type is None:
+        axs = [axs]
+    
+    # Plot trader count distribution
+    sorted_types = type_counts.sort_values(ascending=False).index
+    colors = plt.cm.viridis(np.linspace(0, 0.9, len(sorted_types)))
+    
+    bars = axs[0].bar(sorted_types, type_pcts, color=colors)
+    
+    # Add count and percentage labels
+    for i, bar in enumerate(bars):
+        trader_type = sorted_types[i]
+        count = type_counts[trader_type]
+        pct = type_pcts[trader_type]
+        axs[0].text(i, pct + 1, f"{count:,}\n({pct:.1f}%)", 
+                  ha='center', va='bottom', fontsize=9,
+                  bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8))
+    
+    axs[0].set_title('Trader Type Distribution by Count', fontsize=14, fontweight='bold')
+    axs[0].set_ylabel('Percentage of Traders', fontsize=12)
+    axs[0].set_ylim(0, max(type_pcts) * 1.2)
+    axs[0].grid(axis='y', alpha=0.3)
+    plt.setp(axs[0].get_xticklabels(), rotation=45, ha='right')
+    
+    # Plot volume distribution if available
+    if volume_by_type is not None:
+        sorted_by_volume = volume_by_type.sort_values(ascending=False).index
+        vol_colors = plt.cm.viridis(np.linspace(0, 0.9, len(sorted_by_volume)))
+        
+        vol_bars = axs[1].bar(sorted_by_volume, volume_pcts, color=vol_colors)
+        
+        # Add volume labels
+        for i, bar in enumerate(vol_bars):
+            trader_type = sorted_by_volume[i]
+            volume = volume_by_type[trader_type]
+            pct = volume_pcts[trader_type]
+            axs[1].text(i, pct + 1, f"${volume/1e6:.1f}M\n({pct:.1f}%)", 
+                      ha='center', va='bottom', fontsize=9,
+                      bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8))
+        
+        axs[1].set_title('Trader Type Distribution by Volume', fontsize=14, fontweight='bold')
+        axs[1].set_ylabel('Percentage of Volume', fontsize=12)
+        axs[1].set_ylim(0, max(volume_pcts) * 1.2)
+        axs[1].grid(axis='y', alpha=0.3)
+        plt.setp(axs[1].get_xticklabels(), rotation=45, ha='right')
+    
+    plt.tight_layout()
+    
+    # Save if path provided
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    return fig
+
+def display_top_whale_traders(trade_data, whale_ids, top_n=10, save_path=None):
+    """
+    Identify and display top whale traders by volume
+    
+    Parameters:
+    -----------
+    trade_data : pd.DataFrame
+        DataFrame with trade data
+    whale_ids : list
+        List of whale trader IDs
+    top_n : int
+        Number of top whales to display
+    save_path : str, optional
+        Path to save the results
+        
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame with top whale traders
+    """
+    if 'trader_id' not in trade_data.columns or 'trade_amount' not in trade_data.columns:
+        print("Error: Required columns not found in trade data")
+        return None
+    
+    # Calculate volume by trader
+    trader_volumes = trade_data.groupby('trader_id')['trade_amount'].sum()
+    
+    # Filter to whale IDs and get top traders
+    whale_volumes = trader_volumes[trader_volumes.index.isin(whale_ids)]
+    top_whales = whale_volumes.sort_values(ascending=False).head(top_n)
+    
+    # Calculate stats
+    total_volume = trader_volumes.sum()
+    whale_volume = whale_volumes.sum()
+    top_whales_volume = top_whales.sum()
+    
+    # Create DataFrame with results
+    whale_df = pd.DataFrame({
+        'trader_id': top_whales.index,
+        'volume': top_whales.values,
+        'percent_of_total': 100 * top_whales / total_volume,
+        'percent_of_whales': 100 * top_whales / whale_volume
+    })
+    
+    # Print summary
+    print(f"\nTop {top_n} Whale Traders:")
+    print(f"Total volume: ${total_volume:,.2f}")
+    print(f"All whales volume: ${whale_volume:,.2f} ({100*whale_volume/total_volume:.2f}% of total)")
+    print(f"Top {top_n} whales volume: ${top_whales_volume:,.2f} ({100*top_whales_volume/total_volume:.2f}% of total)")
+    print("\nTop Whale Details:")
+    
+    for i, (trader_id, volume) in enumerate(zip(whale_df['trader_id'], whale_df['volume']), 1):
+        pct = 100 * volume / total_volume
+        print(f"{i}. Trader ID: {trader_id} - Volume: ${volume:,.2f} ({pct:.2f}% of total)")
+    
+    # Save if path provided
+    if save_path:
+        whale_df.to_csv(save_path, index=False)
+        print(f"Top whale data saved to: {save_path}")
+    
+    return whale_df
 
 def analyze_trader_concentration(market_data, min_markets=5, save_path='results/trader_analysis'):
     """
