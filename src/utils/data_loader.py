@@ -30,6 +30,91 @@ def load_market_tokens(filepath='data/trades/market_tokens.json') -> Dict:
         mapping = json.load(f)
     return mapping
 
+def get_token_ids_for_market(market_id: Union[str, int, float], 
+                             main_df=None) -> List[str]:
+    """
+    Get token IDs associated with a market ID
+    
+    Args:
+        market_id: The market ID to look up
+        main_df: DataFrame containing market data
+    
+    Returns:
+        List of token IDs for the market
+    """
+    # If main_df not provided, load it
+    if main_df is None:
+        main_df = load_main_dataset()
+    
+    token_ids = []
+    
+    try:
+        # Convert market_id to match DataFrame's ID column type
+        market_id = main_df['id'].dtype.type(market_id)
+        
+        # Find the row for this market ID
+        market_row = main_df[main_df['id'] == market_id]
+        
+        if not market_row.empty:
+            # Extract clobTokenIds
+            token_ids_str = market_row.iloc[0]['clobTokenIds']
+            
+            # Parse token IDs
+            try:
+                # Use json to parse the string representation of list
+                token_ids = json.loads(token_ids_str)
+            except json.JSONDecodeError:
+                # Fallback to ast.literal_eval if json fails
+                import ast
+                token_ids = ast.literal_eval(token_ids_str)
+            
+            return token_ids
+        else:
+            # BACKUP METHOD: Try to find the market by question or other fields
+            if isinstance(market_id, (int, float)):
+                market_id_str = str(market_id)
+                # Try exact string match on ID (handles format differences)
+                str_matches = main_df[main_df['id'].astype(str) == market_id_str]
+                if not str_matches.empty:
+                    token_ids_str = str_matches.iloc[0]['clobTokenIds']
+                    try:
+                        token_ids = json.loads(token_ids_str)
+                    except json.JSONDecodeError:
+                        import ast
+                        token_ids = ast.literal_eval(token_ids_str)
+                    return token_ids
+            
+            # Try by name/question if ID wasn't found
+            if 'question' in main_df.columns:
+                # Try to find the market question from the ID
+                question = None
+                try:
+                    # Try to load market question mapping
+                    with open('data/trades/market_id_to_question.json', 'r') as f:
+                        mapping = json.load(f)
+                    question = mapping.get(str(market_id))
+                except Exception:
+                    pass
+                
+                if question:
+                    # Find the market by question
+                    question_matches = main_df[main_df['question'] == question]
+                    if not question_matches.empty:
+                        token_ids_str = question_matches.iloc[0]['clobTokenIds']
+                        try:
+                            token_ids = json.loads(token_ids_str)
+                        except json.JSONDecodeError:
+                            import ast
+                            token_ids = ast.literal_eval(token_ids_str)
+                        return token_ids
+            
+            print(f"No market found with ID: {market_id}")
+            return []
+    
+    except Exception as e:
+        print(f"Error getting token IDs for market {market_id}: {e}")
+        return []
+
 def find_token_id_file(token_id: str, trades_dir='data/trades/trades') -> Optional[str]:
     """
     Find a parquet file that matches a given token ID
@@ -52,68 +137,26 @@ def find_token_id_file(token_id: str, trades_dir='data/trades/trades') -> Option
     
     # Try prefix match (files might have timestamps or other suffixes)
     for filename in os.listdir(trades_dir):
-        if filename.startswith(str(token_id)) and filename.endswith('.parquet'):
+        if str(token_id) in filename and filename.endswith('.parquet'):
             return os.path.join(trades_dir, filename)
-    
-    # Try looking for variations (different representations of the same ID)
-    token_id_str = str(token_id)
-    for filename in os.listdir(trades_dir):
-        if filename.endswith('.parquet'):
-            file_id = filename.split('.')[0].split(' ')[0]  # Remove extensions and spaces
-            if file_id == token_id_str:
-                return os.path.join(trades_dir, filename)
     
     # If no match found
     return None
 
-def get_token_ids_for_market(market_id: Union[str, int, float], 
-                             main_df=None) -> List[str]:
-    """
-    Get token IDs associated with a market ID
-    
-    Args:
-        market_id: The market ID to look up
-        main_df: DataFrame containing market data
-    
-    Returns:
-        List of token IDs for the market
-    """
-    # If main_df not provided, load it
-    if main_df is None:
-        main_df = load_main_dataset()
-    
-    try:
-        # Convert market_id to match DataFrame's ID column type
-        market_id = main_df['id'].dtype.type(market_id)
-        
-        # Find the row for this market ID
-        market_row = main_df[main_df['id'] == market_id]
-        
-        if market_row.empty:
-            print(f"No market found with ID: {market_id}")
-            return []
-        
-        # Extract clobTokenIds
-        token_ids_str = market_row.iloc[0]['clobTokenIds']
-        
-        # Parse token IDs
-        try:
-            # Use json to parse the string representation of list
-            token_ids = json.loads(token_ids_str)
-        except json.JSONDecodeError:
-            # Fallback to ast.literal_eval if json fails
-            import ast
-            token_ids = ast.literal_eval(token_ids_str)
-        
-        return token_ids
-    
-    except Exception as e:
-        print(f"Error getting token IDs for market {market_id}: {e}")
-        return []
-
 def load_trade_data(market_id: Union[str, int, float], 
                     trades_dir='data/trades', 
                     return_all_tokens=True) -> Optional[pd.DataFrame]:
+    """
+    Load trade data for a market with improved reliability
+    
+    Args:
+        market_id: Market ID to load trade data for
+        trades_dir: Base directory containing trade data
+        return_all_tokens: Whether to return all tokens or just the first
+        
+    Returns:
+        DataFrame with trade data or None if not found
+    """
     # Get token IDs for this market
     token_ids = get_token_ids_for_market(market_id)
     
@@ -126,10 +169,10 @@ def load_trade_data(market_id: Union[str, int, float],
     
     # Load data for each token
     for token_id in token_ids:
-        # Construct the file path
-        token_file = os.path.join(trades_dir, 'trades', f"{token_id}.parquet")
+        # Look for the token file
+        token_file = find_token_id_file(token_id, os.path.join(trades_dir, 'trades'))
         
-        if os.path.exists(token_file):
+        if token_file and os.path.exists(token_file):
             try:
                 # Load the parquet file
                 df = pq.read_table(token_file).to_pandas()
@@ -139,14 +182,45 @@ def load_trade_data(market_id: Union[str, int, float],
                 df['token_id'] = token_id
                 
                 # Convert timestamp to datetime
-                df['timestamp'] = pd.to_datetime(pd.to_numeric(df['timestamp']), unit='s')
+                if 'timestamp' in df.columns:
+                    df['timestamp'] = pd.to_datetime(pd.to_numeric(df['timestamp']), unit='s')
                 
                 # Sort by timestamp
-                df = df.sort_values('timestamp')
+                if 'timestamp' in df.columns:
+                    df = df.sort_values('timestamp')
                 
                 all_token_dfs.append(df)
+                print(f"Loaded {len(df)} trades for token {token_id}")
             except Exception as e:
                 print(f"Error loading file for token {token_id}: {e}")
+    
+    if not all_token_dfs:
+        # If normal loading failed, try direct search in parquet files
+        print(f"Standard loading failed for market {market_id}. Trying direct parquet scan...")
+        
+        trades_subdir = os.path.join(trades_dir, 'trades')
+        if os.path.exists(trades_subdir):
+            # Get list of parquet files
+            parquet_files = [f for f in os.listdir(trades_subdir) if f.endswith('.parquet')]
+            
+            # Sample a subset of files to avoid excessive processing
+            import random
+            sample_size = min(len(parquet_files), 20)
+            sampled_files = random.sample(parquet_files, sample_size)
+            
+            for parquet_file in sampled_files:
+                file_path = os.path.join(trades_subdir, parquet_file)
+                try:
+                    # Read the file
+                    df = pq.read_table(file_path).to_pandas()
+                    
+                    # Check if it contains our market ID
+                    if 'market_id' in df.columns and market_id in df['market_id'].values:
+                        market_trades = df[df['market_id'] == market_id]
+                        all_token_dfs.append(market_trades)
+                        print(f"Found {len(market_trades)} trades in file {parquet_file}")
+                except Exception:
+                    continue  # Skip problematic files
     
     if not all_token_dfs:
         print(f"No trade data found for market {market_id}")
@@ -155,11 +229,14 @@ def load_trade_data(market_id: Union[str, int, float],
     # Combine all token DataFrames
     if return_all_tokens:
         combined_df = pd.concat(all_token_dfs, ignore_index=True)
-        combined_df = combined_df.sort_values('timestamp')
+        if 'timestamp' in combined_df.columns:
+            combined_df = combined_df.sort_values('timestamp')
         return combined_df
     else:
         # Return the DataFrame for the first token (typically "Yes" token)
         return all_token_dfs[0]
+
+
 
 def get_market_id_from_ethereum_address(ethereum_address: str, 
                                         mapping_file='data/trades/market_id_to_question.json') -> Optional[str]:

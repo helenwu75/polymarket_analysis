@@ -1,0 +1,203 @@
+================================================================================
+TRADER ANALYSIS SUMMARY REPORT
+================================================================================
+Generated: 2025-04-23 16:42:55
+
+------------------------------
+TRADER DISTRIBUTION
+------------------------------
+Total Traders: 11,476
+Total Volume: 5,590,229.24
+Avg Trades per Trader: 15.18
+Median Trades per Trader: 4
+
+------------------------------
+WHALE IDENTIFICATION
+------------------------------
+Gini Coefficient: 0.8924
+Whale Threshold: Top 1.0%
+Number of Whales: 114
+
+------------------------------
+MARKET DYNAMICS
+------------------------------
+Whale Price Impact: -0.001428
+Non-Whale Price Impact: 0.000382
+Impact Ratio: -3.7328
+
+Price Direction:
+  Whale Positive: 16.94%
+  Whale Negative: 17.84%
+  Non-Whale Positive: 13.84%
+  Non-Whale Negative: 13.82%
+------------------------------
+TEMPORAL ANALYSIS
+------------------------------
+Market Duration: 154.06917824074074 days
+Period Type: Week
+Total Periods: 23
+
+Trader Entry Timing:
+  Active Traders: Mean entry at period 9.4
+  Bearish Traders: Mean entry at period 14.4
+
+------------------------------
+NETWORK EFFECTS
+------------------------------
+Time Window: 60 minutes
+
+Trader Following Behavior:
+  Active Traders:
+    Avg Time to Follow: 10.04 minutes
+  Bearish Traders:
+    Avg Time to Follow: 5.56 minutes
+
+------------------------------
+MARKET IMPACT
+------------------------------
+Price Impact by Trader Type:
+  Active Traders: 0.007604 (n=29698)
+  Bearish Traders: -0.002994 (n=136611)
+
+------------------------------
+TRADING STRATEGIES
+------------------------------
+Strategy Distribution by Trader Type:
+  Active Traders:
+    Avg Strategy Score: -0.5804
+    Strategy Distribution:
+      Contrarian: 70.9%
+      Mixed/Neutral: 23.6%
+      Momentum: 5.5%
+    Bias Distribution:
+      Neutral: 69.8%
+      Bearish: 15.1%
+      Bullish: 15.1%
+  Bearish Traders:
+    Avg Strategy Score: -0.0625
+    Strategy Distribution:
+      Mixed/Neutral: 70.0%
+      Contrarian: 18.9%
+      Momentum: 11.1%
+    Bias Distribution:
+      Bearish: 93.1%
+      Bullish: 3.7%
+      Neutral: 3.2%
+
+
+Selected Markets:
+1. Will Maine be the tipping point state? (ID: 503517.0)
+2. Will Virginia be the tipping point state? (ID: 503515.0)
+3. Will Pennsylvania be the tipping point state? (ID: 503506.0)
+4. Will Florida be the tipping point state? (ID: 503521.0)
+5. Will Arizona be the tipping point state? (ID: 503509.0)
+6. Will Nevada be the tipping point state? (ID: 503510.0)
+7. Will there be another tipping point state? (ID: 503519.0)
+8. Will Georgia be the tipping point state? (ID: 503507.0)
+9. Will New Mexico be the tipping point state? (ID: 503508.0)
+10. Will New Hampshire be the tipping point state? (ID: 503516.0)
+11. Will Minnesota be the tipping point state? (ID: 503511.0)
+12. Will Wisconsin be the tipping point state? (ID: 503512.0)
+13. Will Michigan be the tipping point state? (ID: 503513.0)
+14. Will North Carolina be the tipping point state? (ID: 503514.0)
+Loading trade data for market 503517.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 25689 trades for token 94053993457114475555712405561795508926703709810252365187386727919511761724556
+Loaded 5057 trades for token 110184620588229871245053690337693878858301282011757814481605019505389204286456
+Successfully loaded 30746 trades
+Loading trade data for market 503515.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 5258 trades for token 28750260149516156970511939481372188106730151541547457340588851935046819156336
+Loaded 2800 trades for token 28413275580006800737238361517115701922456589964072707055730509698872918052131
+Successfully loaded 8058 trades
+Loading trade data for market 503506.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 33789 trades for token 61117867245992005853582565921588844568802748610716296099606527267215907175115
+Loaded 4018 trades for token 51457489142797367359910450178205727685697690007375232452968327589804914261554
+Successfully loaded 37807 trades
+Loading trade data for market 503521.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 7496 trades for token 70350596299869064180225272961754840410705576590224941156396569217400589913463
+Loaded 7630 trades for token 69462102176082388925670947183052619404457785783479616954573696702703587624500
+Successfully loaded 15126 trades
+Loading trade data for market 503509.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 7222 trades for token 66752967457388541203030863178069051542807236232609131978745583135397848982671
+Loaded 5973 trades for token 72091493599219889357790148745012007495309858826837619836296289000803716568193
+Successfully loaded 13195 trades
+Loading trade data for market 503510.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 6209 trades for token 14494625961597671351138306785873863458554732657697772632118023013674886950557
+Loaded 5835 trades for token 27482998049106889878004989968514622492812478914875783987450665300289384905192
+Successfully loaded 12044 trades
+Loading trade data for market 503519.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 7584 trades for token 53336973995332171450882896442422334093110769520030791409907835610812453116675
+Loaded 4375 trades for token 81671491882918061800437891385059859366670986106676259620894484707982754488708
+Successfully loaded 11959 trades
+Loading trade data for market 503507.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 1595 trades for token 90410632462691541134584247090535522398527561715067115364294713623450717827689
+Loaded 3382 trades for token 86608536684657410178035889417417117363159793589691962854142154137834219383716
+Successfully loaded 4977 trades
+Loading trade data for market 503508.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 4479 trades for token 3303738826308883116780505245196233277956888724229662575656124794192961829226
+Loaded 4053 trades for token 90784730329880140808292646657770526788768514380022149533853563755562425623716
+Successfully loaded 8532 trades
+Loading trade data for market 503516.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 5168 trades for token 66066379485288400932839585638304895155726200324243998640721576168136495114006
+Loaded 4126 trades for token 48670610843561447264056446446006131958499862463929355743336858621533815478166
+Successfully loaded 9294 trades
+Loading trade data for market 503511.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 4331 trades for token 41873784034610625280581667369305669652309235037150410543763166415964047281446
+Loaded 3801 trades for token 21470339030427156016136240444691064871003819544018138908030449831956775921043
+Successfully loaded 8132 trades
+Loading trade data for market 503512.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 2195 trades for token 92370567600341521773693998393180512646772077537502296804566161065821831056975
+Loaded 1033 trades for token 78238098955310161451182825559398198564568986979959344977197228491982919286407
+Successfully loaded 3228 trades
+Loading trade data for market 503513.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 1968 trades for token 70280332127243124267486185651496279779916005353292026425218944518726708664358
+Loaded 826 trades for token 35647207153304031443988231963964206596429173786241423517413770259014781545699
+Successfully loaded 2794 trades
+Loading trade data for market 503514.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 1298 trades for token 8525037276074463152947584777180904214749412233585455253913499854611882628858
+Loaded 597 trades for token 17063711549558370976666619344457258540482098102958568166197982987072487142863
+Successfully loaded 1895 trades
+Loaded 167,787 trades from 14 markets
+Successfully loaded 167,787 trades from 14 markets
+
+================================================================================
+DATA PREPROCESSING
+================================================================================
+
+================================================================================
+DATA PREPROCESSING
+================================================================================
+Initial rows: 167,787
+Removed 80,687 rows from protocol/exchange accounts
+Initial rows: 87,100
+Creating separate records for maker and taker participants...
+Split 87,100 trades into 174,200 trader records (added 87,100 rows)
+Created trader_id from both maker_id and taker_id
+Unique traders identified: 11,476
+Creating trade_amount from size with scaling factor of 1,000,000
+
+Price statistics:
+  Min: 0.001000
+  Max: 0.999000
+  Mean: 0.351848
+  Std Dev: 0.448455
+
+Preprocessing complete:
+Initial rows: 87,100
+Final rows: 174,200
+Dropped rows: -87,100 (-100.0%)
+Successfully preprocessed 174,200 trades
+

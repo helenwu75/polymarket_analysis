@@ -1,0 +1,101 @@
+================================================================================
+TRADER ANALYSIS SUMMARY REPORT
+================================================================================
+Generated: 2025-04-23 17:10:40
+
+------------------------------
+TRADER DISTRIBUTION
+------------------------------
+Total Traders: 1,874
+Total Volume: 530,061.15
+Avg Trades per Trader: 7.71
+Median Trades per Trader: 2
+
+------------------------------
+WHALE IDENTIFICATION
+------------------------------
+Gini Coefficient: 0.9639
+Whale Threshold: Top 1.0%
+Number of Whales: 18
+
+------------------------------
+MARKET DYNAMICS
+------------------------------
+Whale Price Impact: 0.004011
+Non-Whale Price Impact: -0.002936
+Impact Ratio: -1.3661
+
+Price Direction:
+  Whale Positive: 16.42%
+  Whale Negative: 16.54%
+  Non-Whale Positive: 15.97%
+  Non-Whale Negative: 16.83%
+------------------------------
+TEMPORAL ANALYSIS
+------------------------------
+Market Duration: 43.6399537037037 days
+Period Type: Week
+Total Periods: 7
+
+Trader Entry Timing:
+  High-Frequency Traders: Mean entry at period 2.0
+  Retail Traders: Mean entry at period 2.3
+
+------------------------------
+NETWORK EFFECTS
+------------------------------
+Time Window: 60 minutes
+
+Trader Following Behavior:
+  High-Frequency Traders:
+    Avg Time to Follow: 6.14 minutes
+  Retail Traders:
+    Avg Time to Follow: 8.40 minutes
+
+------------------------------
+MARKET IMPACT
+------------------------------
+Price Impact by Trader Type:
+  High-Frequency Traders: -0.003738 (n=9897)
+  Retail Traders: 0.013935 (n=3016)
+
+------------------------------
+TRADING STRATEGIES
+------------------------------
+Strategy Distribution by Trader Type:
+  High-Frequency Traders:
+    Avg Strategy Score: -0.3045
+    Strategy Distribution:
+      Contrarian: 54.8%
+      Mixed/Neutral: 27.9%
+      Momentum: 17.3%
+    Bias Distribution:
+      Neutral: 51.0%
+      Bullish: 40.4%
+      Bearish: 8.7%
+  Retail Traders:
+    Avg Strategy Score: -0.6351
+    Strategy Distribution:
+      Contrarian: 68.9%
+      Mixed/Neutral: 27.0%
+      Momentum: 4.1%
+    Bias Distribution:
+      Neutral: 71.6%
+      Bearish: 26.4%
+      Bullish: 2.0%
+
+Selected Markets:
+1. Will Keir Starmer be next UK prime minister? (ID: 501763.0)
+2. Will Suella Braverman be next UK prime minister? (ID: 501772.0)
+3. Will Boris Johnson be next UK prime minister? (ID: 501770.0)
+4. Will James Cleverly be next UK prime minister? (ID: 501771.0)
+5. Will Grant Shapps be next UK prime minister? (ID: 501766.0)
+6. Will Rishi Sunak be next UK prime minister? (ID: 501762.0)
+7. Will Jeremy Hunt be next UK prime minister? (ID: 501773.0)
+8. Will Penny Mordaunt be next UK prime minister? (ID: 501765.0)
+9. Will Priti Patel be next UK prime minister? (ID: 501764.0)
+10. Will Tom Tugendhat be next UK prime minister? (ID: 501769.0)
+11. Will Kemi Badenoch be next UK prime minister? (ID: 501768.0)
+12. Will Robert Jenrick be next UK prime minister? (ID: 501767.0)
+13. Will another person be next UK prime minister? (ID: 501774.0)
+

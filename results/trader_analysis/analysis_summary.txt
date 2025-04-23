@@ -1,13 +1,99 @@
 ================================================================================
 TRADER ANALYSIS SUMMARY REPORT
 ================================================================================
-Generated: 2025-04-23 15:49:39
+Generated: 2025-04-23 17:15:06
 
 ------------------------------
 TRADER DISTRIBUTION
 ------------------------------
-Total Traders: 87,843
-Total Volume: 560,507,466.64
-Avg Trades per Trader: 14.66
-Median Trades per Trader: 3
+Total Traders: 149,920
+Total Volume: 1,125,309,542.18
+Avg Trades per Trader: 27.00
+Median Trades per Trader: 5
+
+------------------------------
+WHALE IDENTIFICATION
+------------------------------
+Gini Coefficient: 0.9484
+Whale Threshold: Top 1.0%
+Number of Whales: 1,499
+
+------------------------------
+MARKET DYNAMICS
+------------------------------
+Whale Price Impact: -0.000207
+Non-Whale Price Impact: 0.000175
+Impact Ratio: -1.1802
+
+Price Direction:
+  Whale Positive: 10.18%
+  Whale Negative: 10.91%
+  Non-Whale Positive: 11.97%
+  Non-Whale Negative: 11.32%
+------------------------------
+TEMPORAL ANALYSIS
+------------------------------
+Market Duration: 306.77290509259257 days
+Period Type: Week
+Total Periods: 44
+
+Trader Entry Timing:
+  Active Traders: Mean entry at period 35.2
+  High-Frequency Traders: Mean entry at period 35.7
+  Retail Traders: Mean entry at period 34.6
+
+------------------------------
+NETWORK EFFECTS
+------------------------------
+Time Window: 60 minutes
+
+Trader Following Behavior:
+  Active Traders:
+    Avg Time to Follow: 10.70 minutes
+  High-Frequency Traders:
+    Avg Time to Follow: 4.35 minutes
+  Retail Traders:
+    Avg Time to Follow: 6.47 minutes
+
+------------------------------
+MARKET IMPACT
+------------------------------
+Price Impact by Trader Type:
+  Active Traders: -0.019073 (n=110884)
+  High-Frequency Traders: -0.000146 (n=3352556)
+  Retail Traders: 0.009975 (n=509466)
+
+------------------------------
+TRADING STRATEGIES
+------------------------------
+Strategy Distribution by Trader Type:
+  Active Traders:
+    Avg Strategy Score: -0.1942
+    Strategy Distribution:
+      Contrarian: 47.6%
+      Mixed/Neutral: 33.3%
+      Momentum: 19.0%
+    Bias Distribution:
+      Bearish: 95.2%
+      Neutral: 4.8%
+  High-Frequency Traders:
+    Avg Strategy Score: -0.3959
+    Strategy Distribution:
+      Contrarian: 59.5%
+      Mixed/Neutral: 36.4%
+      Momentum: 4.1%
+    Bias Distribution:
+      Neutral: 67.4%
+      Bullish: 20.7%
+      Bearish: 12.0%
+  Retail Traders:
+    Avg Strategy Score: -0.3753
+    Strategy Distribution:
+      Contrarian: 54.0%
+      Mixed/Neutral: 37.9%
+      Momentum: 8.1%
+    Bias Distribution:
+      Neutral: 66.4%
+      Bullish: 27.7%
+      Bearish: 6.0%
 

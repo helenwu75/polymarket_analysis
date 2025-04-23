@@ -1,0 +1,137 @@
+================================================================================
+TRADER ANALYSIS SUMMARY REPORT
+================================================================================
+Generated: 2025-04-23 17:06:01
+
+------------------------------
+TRADER DISTRIBUTION
+------------------------------
+Total Traders: 2,666
+Total Volume: 4,509,168.79
+Avg Trades per Trader: 7.00
+Median Trades per Trader: 2
+
+------------------------------
+WHALE IDENTIFICATION
+------------------------------
+Gini Coefficient: 0.9613
+Whale Threshold: Top 1.0%
+Number of Whales: 26
+
+------------------------------
+MARKET DYNAMICS
+------------------------------
+Whale Price Impact: 0.022767
+Non-Whale Price Impact: -0.007958
+Impact Ratio: -2.8611
+
+Price Direction:
+  Whale Positive: 19.23%
+  Whale Negative: 19.94%
+  Non-Whale Positive: 19.42%
+  Non-Whale Negative: 20.86%
+------------------------------
+TEMPORAL ANALYSIS
+------------------------------
+Market Duration: 232.20685185185187 days
+Period Type: Week
+Total Periods: 34
+
+Trader Entry Timing:
+  High-Frequency Traders: Mean entry at period 27.0
+  Retail Traders: Mean entry at period 28.1
+
+------------------------------
+NETWORK EFFECTS
+------------------------------
+Time Window: 60 minutes
+
+Trader Following Behavior:
+  High-Frequency Traders:
+    Avg Time to Follow: 7.83 minutes
+  Retail Traders:
+    Avg Time to Follow: 13.66 minutes
+
+------------------------------
+MARKET IMPACT
+------------------------------
+Price Impact by Trader Type:
+  High-Frequency Traders: -0.008143 (n=13444)
+  Retail Traders: 0.021262 (n=2615)
+
+------------------------------
+TRADING STRATEGIES
+------------------------------
+Strategy Distribution by Trader Type:
+  High-Frequency Traders:
+    Avg Strategy Score: -0.1551
+    Strategy Distribution:
+      Mixed/Neutral: 48.4%
+      Contrarian: 34.9%
+      Momentum: 16.7%
+    Bias Distribution:
+      Bullish: 46.8%
+      Neutral: 38.1%
+      Bearish: 15.1%
+  Retail Traders:
+    Avg Strategy Score: -0.5264
+    Strategy Distribution:
+      Contrarian: 63.9%
+      Mixed/Neutral: 27.9%
+      Momentum: 8.2%
+    Bias Distribution:
+      Neutral: 65.6%
+      Bullish: 19.7%
+      Bearish: 14.8%
+
+
+Selected Markets:
+1. Will a Republican win Pennsylvania US Senate Election? (ID: 500109.0)
+2. Will a Democrat win Pennsylvania US Senate Election? (ID: 500108.0)
+3. Will a candidate from another party win Pennsylvania US Senate Election? (ID: 500110.0)
+Loading trade data for market 500109.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 4270 trades for token 109193359842614462649768714123661929746247460686168540872183774378497988296172
+Loaded 2854 trades for token 70138153252154954408203632048618941534486510168116629441433311186051407865538
+Successfully loaded 7124 trades
+Loading trade data for market 500108.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 2383 trades for token 58059853537451964777059792095816455340743648080733545719045977017101901211397
+Loaded 1851 trades for token 15373794343578126331924635804735338208688991905418936088543976230401353474653
+Successfully loaded 4234 trades
+Loading trade data for market 500110.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 2967 trades for token 66555689354799053476279486763956446905243800112064307250751336363162178634976
+Loaded 1816 trades for token 78889442926505263136628600704326843113802722022828891932711233780503251379086
+Successfully loaded 4783 trades
+Loaded 16,141 trades from 3 markets
+Successfully loaded 16,141 trades from 3 markets
+
+================================================================================
+DATA PREPROCESSING
+================================================================================
+
+================================================================================
+DATA PREPROCESSING
+================================================================================
+Initial rows: 16,141
+Removed 6,809 rows from protocol/exchange accounts
+Initial rows: 9,332
+Creating separate records for maker and taker participants...
+Split 9,332 trades into 18,664 trader records (added 9,332 rows)
+Created trader_id from both maker_id and taker_id
+Unique traders identified: 2,666
+Creating trade_amount from size with scaling factor of 1,000,000
+
+Price statistics:
+  Min: 0.001000
+  Max: 0.999000
+  Mean: 0.353008
+  Std Dev: 0.426458
+
+Preprocessing complete:
+Initial rows: 9,332
+Final rows: 18,664
+Dropped rows: -9,332 (-100.0%)
+Successfully preprocessed 18,664 trades
+

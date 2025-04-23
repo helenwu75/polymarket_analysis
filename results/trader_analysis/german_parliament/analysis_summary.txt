@@ -1,0 +1,169 @@
+================================================================================
+TRADER ANALYSIS SUMMARY REPORT
+================================================================================
+Generated: 2025-04-23 16:59:57
+
+------------------------------
+TRADER DISTRIBUTION
+------------------------------
+Total Traders: 37,449
+Total Volume: 30,754,960.82
+Avg Trades per Trader: 8.37
+Median Trades per Trader: 2
+
+------------------------------
+WHALE IDENTIFICATION
+------------------------------
+Gini Coefficient: 0.9800
+Whale Threshold: Top 1.0%
+Number of Whales: 374
+
+------------------------------
+MARKET DYNAMICS
+------------------------------
+Whale Price Impact: 0.003011
+Non-Whale Price Impact: -0.003276
+Impact Ratio: -0.9191
+
+Price Direction:
+  Whale Positive: 15.40%
+  Whale Negative: 16.54%
+  Non-Whale Positive: 16.95%
+  Non-Whale Negative: 15.97%
+------------------------------
+TEMPORAL ANALYSIS
+------------------------------
+Market Duration: 69.75903935185185 days
+Period Type: Week
+Total Periods: 10
+
+Trader Entry Timing:
+  Active Traders: Mean entry at period 4.3
+  High-Frequency Traders: Mean entry at period 4.3
+  Retail Traders: Mean entry at period 3.4
+
+------------------------------
+NETWORK EFFECTS
+------------------------------
+Time Window: 60 minutes
+
+Trader Following Behavior:
+  Active Traders:
+    Avg Time to Follow: 18.19 minutes
+  High-Frequency Traders:
+    Avg Time to Follow: 1.67 minutes
+  Retail Traders:
+    Avg Time to Follow: 6.87 minutes
+
+------------------------------
+MARKET IMPACT
+------------------------------
+Price Impact by Trader Type:
+  Active Traders: -0.003859 (n=10003)
+  High-Frequency Traders: -0.001228 (n=227049)
+  Retail Traders: 0.008427 (n=37426)
+
+------------------------------
+TRADING STRATEGIES
+------------------------------
+Strategy Distribution by Trader Type:
+  Active Traders:
+    Avg Strategy Score: -0.3625
+    Strategy Distribution:
+      Contrarian: 50.0%
+      Mixed/Neutral: 43.8%
+      Momentum: 6.2%
+    Bias Distribution:
+      Bullish: 50.0%
+      Bearish: 25.0%
+      Neutral: 25.0%
+  High-Frequency Traders:
+    Avg Strategy Score: -0.0600
+    Strategy Distribution:
+      Mixed/Neutral: 40.8%
+      Contrarian: 32.9%
+      Momentum: 26.3%
+    Bias Distribution:
+      Neutral: 52.6%
+      Bullish: 27.6%
+      Bearish: 19.7%
+  Retail Traders:
+    Avg Strategy Score: -0.4267
+    Strategy Distribution:
+      Contrarian: 60.0%
+      Mixed/Neutral: 30.0%
+      Momentum: 10.0%
+    Bias Distribution:
+      Neutral: 61.2%
+      Bullish: 33.8%
+      Bearish: 5.0%
+
+Markets:
+
+Selected Markets:
+1. Will another party win the most seats in the next German election? (ID: 514165.0)
+2. Will FDP win the most seats in the next German election? (ID: 515761.0)
+3. Will BSW win the most seats in the next German election? (ID: 514164.0)
+4. Will Gr√ºnen win the most seats in the next German election? (ID: 514163.0)
+5. Will AfD win the most seats in the next German election? (ID: 514162.0)
+6. Will SPD win the most seats in the next German election? (ID: 514027.0)
+7. Will Union win the most seats in the next German election? (ID: 514161.0)
+Loading trade data for market 514165.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 21610 trades for token 96656178045344637539721800812797460076273926889921701189421153260840359200516
+Loaded 12255 trades for token 8972288672640435283442731460565050080154589412830184620500535415246091002154
+Successfully loaded 33865 trades
+Loading trade data for market 515761.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 19094 trades for token 58133844730076047070110973379344868761150347358500598838005887606220013934718
+Loaded 10597 trades for token 14875660322078163696008576577608406432294409984642605754965521546683761493099
+Successfully loaded 29691 trades
+Loading trade data for market 514164.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 18581 trades for token 109017296453266284922537718220544121752711611000868061486471538096788929735825
+Loaded 9978 trades for token 23981180313671057489616797021470375300736483279277322725106149750697962241941
+Successfully loaded 28559 trades
+Loading trade data for market 514163.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 19983 trades for token 68722856477421329857892098052993999995690750329444148260814556920255175176595
+Loaded 10521 trades for token 234913254435593713139775276857105964945975015774723881643512012955137699791
+Successfully loaded 30504 trades
+Loading trade data for market 514162.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 23214 trades for token 70725071323267489796578137047432522753253842045053305424361728601928113038228
+Loaded 24163 trades for token 33140494091730733872309680642738152256791055755911659524336076986555946766208
+Successfully loaded 47377 trades
+Loading trade data for market 514027.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 21098 trades for token 60621220364316601522483500784185600361142293611083331818948694084273843783683
+Loaded 14215 trades for token 43934685970966035557326373319083532698390426244121872754748142363079406937313
+Successfully loaded 35313 trades
+Loading trade data for market 514161.0...
+Loaded dataset with 1048575 rows and 54 columns
+Loaded 47912 trades for token 46170718677339495648435492459077367668216793601074770377073078173626671320755
+Loaded 26664 trades for token 102073669368079455662248607998779400621724038228832004867216736035692981690438
+Successfully loaded 74576 trades
+Loaded 279,885 trades from 7 markets
+Successfully loaded 279,885 trades from 7 markets
+
+Initial rows: 279,885
+Removed 123,124 rows from protocol/exchange accounts
+Initial rows: 156,761
+Creating separate records for maker and taker participants...
+Split 156,761 trades into 313,522 trader records (added 156,761 rows)
+Created trader_id from both maker_id and taker_id
+Unique traders identified: 37,449
+Creating trade_amount from size with scaling factor of 1,000,000
+
+Price statistics:
+  Min: 0.001000
+  Max: 0.999000
+  Mean: 0.240222
+  Std Dev: 0.388890
+
+Preprocessing complete:
+Initial rows: 156,761
+Final rows: 313,522
+Dropped rows: -156,761 (-100.0%)
+Successfully preprocessed 313,522 trades
+
