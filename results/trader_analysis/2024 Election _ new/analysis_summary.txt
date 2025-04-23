@@ -1,0 +1,72 @@
+================================================================================
+TRADER ANALYSIS SUMMARY REPORT
+================================================================================
+Generated: 2025-04-23 11:13:48
+
+------------------------------
+TRADER DISTRIBUTION
+------------------------------
+Total Traders: 87,843
+Total Volume: 560,507,466.64
+Avg Trades per Trader: 14.66
+Median Trades per Trader: 3
+
+------------------------------
+WHALE IDENTIFICATION
+------------------------------
+Gini Coefficient: 0.9429
+Whale Threshold: Top 1.0%
+Number of Whales: 878
+
+------------------------------
+MARKET DYNAMICS
+------------------------------
+Whale Price Impact: -0.000242
+Non-Whale Price Impact: 0.000189
+Impact Ratio: -1.2854
+
+Price Direction:
+  Whale Positive: 23.96%
+  Whale Negative: 24.97%
+  Non-Whale Positive: 25.14%
+  Non-Whale Negative: 24.43%
+------------------------------
+TEMPORAL ANALYSIS
+------------------------------
+Market Duration: 292.53100694444447 days
+Period Type: Week
+Total Periods: 42
+
+Trader Entry Timing:
+  Whale Traders: Mean entry at period 35.9
+
+------------------------------
+NETWORK EFFECTS
+------------------------------
+Time Window: 60 minutes
+
+Trader Following Behavior:
+  Whale Traders:
+    Avg Time to Follow: 4.66 minutes
+
+------------------------------
+MARKET IMPACT
+------------------------------
+Price Impact by Trader Type:
+  Whale Traders: -0.000010 (n=1227723)
+
+------------------------------
+TRADING STRATEGIES
+------------------------------
+Strategy Distribution by Trader Type:
+  Whale Traders:
+    Avg Strategy Score: -0.2300
+    Strategy Distribution:
+      Contrarian: 48.2%
+      Mixed/Neutral: 34.7%
+      Momentum: 17.1%
+    Bias Distribution:
+      Neutral: 50.1%
+      Bullish: 35.5%
+      Bearish: 14.3%
+
