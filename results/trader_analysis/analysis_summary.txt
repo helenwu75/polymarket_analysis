@@ -1,7 +1,7 @@
 ================================================================================
 TRADER ANALYSIS SUMMARY REPORT
 ================================================================================
-Generated: 2025-04-23 17:15:06
+Generated: 2025-04-23 17:35:06
 
 ------------------------------
 TRADER DISTRIBUTION
@@ -68,32 +68,32 @@ TRADING STRATEGIES
 ------------------------------
 Strategy Distribution by Trader Type:
   Active Traders:
-    Avg Strategy Score: -0.1942
+    Avg Strategy Score: -0.2808
     Strategy Distribution:
-      Contrarian: 47.6%
-      Mixed/Neutral: 33.3%
-      Momentum: 19.0%
+      Contrarian: 47.1%
+      Mixed/Neutral: 41.6%
+      Momentum: 11.3%
     Bias Distribution:
-      Bearish: 95.2%
-      Neutral: 4.8%
+      Bearish: 91.7%
+      Neutral: 8.3%
   High-Frequency Traders:
-    Avg Strategy Score: -0.3959
+    Avg Strategy Score: -0.3915
     Strategy Distribution:
-      Contrarian: 59.5%
-      Mixed/Neutral: 36.4%
-      Momentum: 4.1%
+      Contrarian: 57.1%
+      Mixed/Neutral: 37.6%
+      Momentum: 5.3%
     Bias Distribution:
-      Neutral: 67.4%
-      Bullish: 20.7%
-      Bearish: 12.0%
+      Neutral: 66.5%
+      Bullish: 23.9%
+      Bearish: 9.6%
   Retail Traders:
-    Avg Strategy Score: -0.3753
+    Avg Strategy Score: -0.4030
     Strategy Distribution:
-      Contrarian: 54.0%
-      Mixed/Neutral: 37.9%
-      Momentum: 8.1%
+      Contrarian: 58.4%
+      Mixed/Neutral: 31.8%
+      Momentum: 9.8%
     Bias Distribution:
-      Neutral: 66.4%
-      Bullish: 27.7%
-      Bearish: 6.0%
+      Neutral: 71.1%
+      Bullish: 24.1%
+      Bearish: 4.8%
 
