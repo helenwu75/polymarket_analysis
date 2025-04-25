@@ -1,207 +1,243 @@
-# market_efficiency_analysis.py
 import os
-import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from statsmodels.tsa.stattools import acf, adfuller, grangercausalitytests
+from scipy import stats
+from statsmodels.tsa.stattools import acf, adfuller
 from statsmodels.tsa.ar_model import AutoReg
-from tqdm.auto import tqdm
 import warnings
-import json
 
 class MarketEfficiencyAnalyzer:
     """
-    Analyzer for testing market efficiency in prediction markets.
-    Focuses on weak-form and strong-form efficiency tests.
+    A class for analyzing weak-form market efficiency in prediction markets.
+    
+    This analyzer implements the key statistical tests for weak-form efficiency:
+    1. Random walk test (Augmented Dickey-Fuller)
+    2. Autocorrelation test
+    3. Runs test for randomness
+    4. Autoregressive model test
     """
     
-    def __init__(self, data_dir='data', results_dir='results/market_efficiency'):
-        """Initialize the analyzer with data paths"""
-        self.data_dir = data_dir
+    def __init__(self, results_dir='results/market_efficiency'):
+        """Initialize the analyzer with a results directory"""
         self.results_dir = results_dir
-        self.market_data_cache = {}
-        
-        # Create results directory
-        os.makedirs(self.results_dir, exist_ok=True)
-        
-        # Load dataset
-        self.main_df = self._load_main_dataset()
-        
-        # Set ID column
-        self.id_column = self._determine_id_column()
-        
-        # Load market questions
-        self.market_questions = self._load_market_questions()
+        os.makedirs(results_dir, exist_ok=True)
     
-    def _load_main_dataset(self):
-        """Load main dataset with error handling"""
-        try:
-            filepath = os.path.join(self.data_dir, 'cleaned_election_data.csv')
-            if not os.path.exists(filepath):
-                print(f"Warning: Main dataset file not found at {filepath}")
-                return pd.DataFrame()  # Return empty DataFrame instead of None
-                
-            df = pd.read_csv(filepath, low_memory=False)
-            print(f"Loaded dataset with {df.shape[0]} rows and {df.shape[1]} columns")
-            return df
-        except Exception as e:
-            print(f"Error loading main dataset: {e}")
-            return pd.DataFrame()  # Return empty DataFrame
-    
-    def _determine_id_column(self):
-        """Determine which column contains market IDs"""
-        if self.main_df.empty:
-            return 'id'
+    # Update the preprocess_market_data method in src/knowledge_value/market_efficiency.py
+
+    def preprocess_market_data(self, trade_data, resample_freq='1min'):
+        """
+        Preprocess market trade data for efficiency tests
+        
+        Parameters:
+        -----------
+        trade_data : pd.DataFrame
+            DataFrame with trade data including 'timestamp' and 'price' columns
+        resample_freq : str
+            Frequency for resampling data (e.g., '1min', '5min', '1h')
             
-        if 'market_id' in self.main_df.columns:
-            return 'market_id'
-        elif 'id' in self.main_df.columns:
-            return 'id'
-        else:
-            return self.main_df.columns[0]
-    
-    def _load_market_questions(self):
-        """Load market question mapping with error handling"""
-        try:
-            filepath = os.path.join(self.data_dir, 'trades', 'market_id_to_question.json')
-            if not os.path.exists(filepath):
-                print(f"Warning: Market questions file not found at {filepath}")
-                return {}
-                
-            with open(filepath, 'r') as f:
-                data = json.load(f)
-            print(f"Loaded mapping for {len(data)} markets")
-            return data
-        except Exception as e:
-            print(f"Error loading market questions: {e}")
-            return {}
-    
-    def load_trade_data(self, market_id):
-        """Load trade data for a specific market"""
-        try:
-            # Check if the data is in the cache
-            if market_id in self.market_data_cache:
-                return self.market_data_cache[market_id]
-            
-            # Try to find the correct file
-            from utils.data_loader import load_trade_data
-            trades_df = load_trade_data(market_id, trades_dir=os.path.join(self.data_dir, 'trades'))
-            
-            if trades_df is None or len(trades_df) < 30:
-                print(f"Insufficient trade data for market {market_id}")
-                return None
-            
-            # Process timestamps
-            if 'timestamp' in trades_df.columns and not pd.api.types.is_datetime64_any_dtype(trades_df['timestamp']):
-                try:
-                    # Convert numeric timestamps to datetime
-                    trades_df['timestamp'] = pd.to_datetime(pd.to_numeric(trades_df['timestamp']), unit='s')
-                except:
-                    print(f"Warning: Could not convert timestamps for market {market_id}")
-            
-            # Process prices
-            if 'price' in trades_df.columns:
-                trades_df['price'] = pd.to_numeric(trades_df['price'], errors='coerce')
-            
-            # Sort by timestamp
-            if 'timestamp' in trades_df.columns:
-                trades_df = trades_df.sort_values('timestamp')
-            
-            # Calculate log returns if price exists
-            if 'price' in trades_df.columns:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    trades_df['log_return'] = np.log(trades_df['price'] / trades_df['price'].shift(1))
-            
-            # Cache the data
-            self.market_data_cache[market_id] = trades_df
-            
-            return trades_df
-        except Exception as e:
-            print(f"Error loading trade data for market {market_id}: {e}")
+        Returns:
+        --------
+        pd.DataFrame
+            Preprocessed data with regular time intervals
+        """
+        if trade_data is None or len(trade_data) < 30:
+            print("Insufficient trade data for analysis")
             return None
-    
-    def preprocess_market_data(self, market_id, resample='1min'):
-        """Preprocess market data for efficiency tests"""
-        trades_df = self.load_trade_data(market_id)
-        
-        if trades_df is None:
-            return None
-        
-        try:
-            # Set timestamp as index
-            if 'timestamp' in trades_df.columns:
-                trades_df = trades_df.set_index('timestamp')
             
-            # Resample data to regular intervals
-            if 'price' in trades_df.columns:
-                price_series = trades_df['price']
-                price_series = price_series.resample(resample).last().dropna()
+        try:
+            # Ensure timestamp is datetime
+            if 'timestamp' in trade_data.columns:
+                if not pd.api.types.is_datetime64_any_dtype(trade_data['timestamp']):
+                    trade_data['timestamp'] = pd.to_datetime(trade_data['timestamp'])
+                
+                # Set timestamp as index
+                trade_data = trade_data.set_index('timestamp')
+            
+            # Extract price series
+            if 'price' in trade_data.columns:
+                # Convert price to numeric type first to ensure calculations work
+                trade_data['price'] = pd.to_numeric(trade_data['price'], errors='coerce')
+                
+                # Drop rows with NaN prices
+                trade_data = trade_data.dropna(subset=['price'])
+                
+                # Resample to regular intervals
+                price_series = trade_data['price'].resample(resample_freq).last().ffill()  # Using ffill() instead of fillna(method='ffill')
                 
                 # Calculate log returns
                 log_returns = np.log(price_series / price_series.shift(1)).dropna()
                 
                 # Create output DataFrame
-                result_df = pd.DataFrame({
+                result = pd.DataFrame({
                     'price': price_series,
                     'log_return': log_returns
                 })
                 
-                return result_df
+                return result
             else:
-                print(f"No price data for market {market_id}")
+                print("No price data available")
                 return None
         except Exception as e:
-            print(f"Error preprocessing data for market {market_id}: {e}")
+            print(f"Error preprocessing market data: {e}")
             return None
     
-    def get_market_details(self, market_id):
-        """Get details about a specific market"""
-        question = self.market_questions.get(str(market_id), 'Unknown')
+    # Add this to the market_efficiency.py file
+
+    def generate_detailed_report(self, result, processed_data, output_path=None):
+        """
+        Generate a detailed markdown report of the market efficiency analysis
         
-        details = {
-            'id': market_id,
-            'question': question
-        }
+        Parameters:
+        -----------
+        result : dict
+            Dictionary with analysis results
+        processed_data : pd.DataFrame
+            Preprocessed market data
+        output_path : str, optional
+            Path to save the report
+            
+        Returns:
+        --------
+        str
+            Markdown formatted report
+        """
+        if not result['analysis_success']:
+            return f"# Market Analysis Failed\n\nReason: {result.get('reason', 'Unknown')}"
         
-        # Add more details from main_df if available
-        if not self.main_df.empty:
-            try:
-                row = self.main_df[self.main_df[self.id_column] == market_id]
-                if not row.empty:
-                    for col in ['event_electionType', 'event_country', 'volumeNum']:
-                        if col in row.columns:
-                            details[col.replace('event_', '')] = row[col].iloc[0]
-            except Exception as e:
-                print(f"Error getting market details: {e}")
+        market_name = result.get('market_name', 'Unknown Market')
+        market_id = result.get('market_id', 'Unknown ID')
         
-        return details
-    
-    def find_market_by_name(self, search_term):
-        """Find markets by name or keyword"""
-        matches = []
+        # Create report header
+        report = [
+            f"# Market Efficiency Analysis: {market_name}",
+            f"Analysis Date: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Market ID: {market_id}",
+            "",
+            "## Summary",
+            f"**Efficiency Score**: {result['efficiency_score']:.2f}/100",
+            f"**Classification**: {result['efficiency_class']}",
+            "",
+            "## Data Overview",
+            f"- **Time Period**: {processed_data.index.min().strftime('%Y-%m-%d')} to {processed_data.index.max().strftime('%Y-%m-%d')}",
+            f"- **Number of Data Points**: {len(processed_data):,}",
+            f"- **Price Range**: {processed_data['price'].min():.4f} to {processed_data['price'].max():.4f}",
+            f"- **Average Price**: {processed_data['price'].mean():.4f}",
+            f"- **Price Volatility**: {processed_data['price'].std():.4f}",
+            f"- **Return Volatility**: {processed_data['log_return'].std():.4f}",
+            "",
+            "## Efficiency Tests",
+            ""
+        ]
         
-        # Search in main_df
-        if not self.main_df.empty and 'question' in self.main_df.columns:
-            matches_df = self.main_df[self.main_df['question'].str.contains(search_term, case=False, na=False)]
-            for _, row in matches_df.iterrows():
-                matches.append((row[self.id_column], row['question']))
+        # Add random walk test results
+        if 'adf_price' in result and result['adf_price']:
+            is_random_walk = not result['adf_price']['is_stationary']
+            report.extend([
+                "### 1. Random Walk Test (Augmented Dickey-Fuller)",
+                f"- **Result**: {'PASS' if is_random_walk else 'FAIL'}",
+                f"- **Test Statistic**: {result['adf_price']['statistic']:.4f}",
+                f"- **P-value**: {result['adf_price']['p_value']:.6f}",
+                f"- **Critical Values**:",
+                f"  - 1%: {result['adf_price']['critical_values']['1%']:.4f}",
+                f"  - 5%: {result['adf_price']['critical_values']['5%']:.4f}",
+                f"  - 10%: {result['adf_price']['critical_values']['10%']:.4f}",
+                f"- **Interpretation**: {'Price series follows a random walk' if is_random_walk else 'Price series does not follow a random walk (inefficient)'}",
+                ""
+            ])
         
-        # Search in market_questions
-        for market_id, question in self.market_questions.items():
-            if search_term.lower() in question.lower():
-                # Avoid duplicates
-                if not any(str(market_id) == str(m_id) for m_id, _ in matches):
-                    matches.append((market_id, question))
+        # Add return stationarity test results
+        if 'adf_return' in result and result['adf_return']:
+            is_stationary = result['adf_return']['is_stationary']
+            report.extend([
+                "### 2. Return Stationarity Test (Augmented Dickey-Fuller)",
+                f"- **Result**: {'PASS' if is_stationary else 'FAIL'}",
+                f"- **Test Statistic**: {result['adf_return']['statistic']:.4f}",
+                f"- **P-value**: {result['adf_return']['p_value']:.6f}",
+                f"- **Critical Values**:",
+                f"  - 1%: {result['adf_return']['critical_values']['1%']:.4f}",
+                f"  - 5%: {result['adf_return']['critical_values']['5%']:.4f}",
+                f"  - 10%: {result['adf_return']['critical_values']['10%']:.4f}",
+                f"- **Interpretation**: {'Returns are stationary (efficient)' if is_stationary else 'Returns are not stationary (inefficient)'}",
+                ""
+            ])
         
-        return matches
-    
-    # Efficiency Tests
-    
+        # Add autocorrelation test results
+        if 'autocorrelation' in result and result['autocorrelation']:
+            no_autocorr = not result['autocorrelation']['has_significant_autocorrelation']
+            significant_lags = result['autocorrelation']['significant_lags']
+            report.extend([
+                "### 3. Autocorrelation Test",
+                f"- **Result**: {'PASS' if no_autocorr else 'FAIL'}",
+                f"- **Significant Lags**: {significant_lags if significant_lags else 'None'}",
+                f"- **Interpretation**: {'No significant autocorrelation (efficient)' if no_autocorr else 'Significant autocorrelation detected (inefficient)'}",
+                ""
+            ])
+        
+        # Add runs test results
+        if 'runs_test' in result and result['runs_test']:
+            is_random = result['runs_test']['is_random']
+            report.extend([
+                "### 4. Runs Test for Randomness",
+                f"- **Result**: {'PASS' if is_random else 'FAIL'}",
+                f"- **Runs**: {result['runs_test']['runs']:.0f}",
+                f"- **Expected Runs**: {result['runs_test']['expected_runs']:.2f}",
+                f"- **Z-statistic**: {result['runs_test']['z_statistic']:.4f}",
+                f"- **P-value**: {result['runs_test']['p_value']:.6f}",
+                f"- **Interpretation**: {'Returns sequence is random (efficient)' if is_random else 'Returns sequence is not random (inefficient)'}",
+                ""
+            ])
+        
+        # Add AR model test results
+        if 'ar_model' in result and result['ar_model']:
+            not_predictable = not result['ar_model']['is_significant']
+            report.extend([
+                "### 5. Autoregressive Model Test",
+                f"- **Result**: {'PASS' if not_predictable else 'FAIL'}",
+                f"- **AR(1) Coefficient**: {result['ar_model']['coefficient']:.6f}",
+                f"- **P-value**: {result['ar_model']['p_value']:.6f}",
+                f"- **Interpretation**: {'Returns are not predictable using AR model (efficient)' if not_predictable else 'Returns are predictable using AR model (inefficient)'}",
+                ""
+            ])
+        
+        # Add conclusion
+        report.extend([
+            "## Conclusion",
+            f"This market is classified as **{result['efficiency_class']}** with an efficiency score of **{result['efficiency_score']:.2f}/100**."
+        ])
+        
+        if result['efficiency_score'] < 40:
+            report.append("The market exhibits significant inefficiencies, with strong evidence against the random walk hypothesis. The price movements show predictable patterns that could potentially be exploited by traders.")
+        elif result['efficiency_score'] < 60:
+            report.append("The market exhibits some inefficiencies, with mixed evidence regarding the random walk hypothesis. While some tests indicate efficiency, others suggest the presence of predictable patterns.")
+        elif result['efficiency_score'] < 80:
+            report.append("The market is moderately efficient, with most tests supporting the random walk hypothesis. There are limited opportunities for exploiting predictable patterns.")
+        else:
+            report.append("The market is highly efficient, strongly supporting the random walk hypothesis. Price movements appear to be unpredictable, consistent with the efficient market hypothesis.")
+        
+        # Save report if path provided
+        if output_path:
+            with open(output_path, 'w') as f:
+                f.write('\n'.join(report))
+            print(f"Detailed report saved to: {output_path}")
+        
+        return '\n'.join(report)
+
     def run_adf_test(self, series):
-        """Run Augmented Dickey-Fuller test for stationarity"""
+        """
+        Run Augmented Dickey-Fuller test for stationarity
+        
+        Parameters:
+        -----------
+        series : pd.Series
+            Time series to test
+            
+        Returns:
+        --------
+        dict
+            Dictionary with test results
+        """
         try:
             result = adfuller(series.dropna())
             return {
@@ -215,7 +251,21 @@ class MarketEfficiencyAnalyzer:
             return None
     
     def run_autocorrelation_test(self, series, lags=10):
-        """Test for autocorrelation in returns"""
+        """
+        Test for autocorrelation in returns
+        
+        Parameters:
+        -----------
+        series : pd.Series
+            Time series to test
+        lags : int
+            Number of lags to test
+            
+        Returns:
+        --------
+        dict
+            Dictionary with test results
+        """
         try:
             acf_values = acf(series.dropna(), nlags=lags, fft=True)
             
@@ -235,15 +285,74 @@ class MarketEfficiencyAnalyzer:
             print(f"Error in autocorrelation test: {e}")
             return None
     
+    def run_runs_test(self, series):
+        """
+        Run runs test for randomness
+        
+        Parameters:
+        -----------
+        series : pd.Series
+            Time series to test
+            
+        Returns:
+        --------
+        dict
+            Dictionary with test results
+        """
+        try:
+            # Calculate signs of returns (positive or negative)
+            signs = np.sign(series.dropna())
+            
+            # Count runs
+            runs = len([i for i in range(1, len(signs)) if signs.iloc[i] != signs.iloc[i-1]]) + 1
+            
+            # Count positive and negative returns
+            pos = sum(signs > 0)
+            neg = sum(signs < 0)
+            
+            # Calculate expected runs and standard deviation
+            expected_runs = ((2 * pos * neg) / (pos + neg)) + 1
+            std_runs = np.sqrt((2 * pos * neg * (2 * pos * neg - pos - neg)) / 
+                              ((pos + neg)**2 * (pos + neg - 1)))
+            
+            # Calculate z-statistic
+            z = (runs - expected_runs) / std_runs
+            p_value = 2 * (1 - stats.norm.cdf(abs(z)))
+            
+            return {
+                'runs': runs,
+                'expected_runs': expected_runs,
+                'z_statistic': z,
+                'p_value': p_value,
+                'is_random': p_value >= 0.05
+            }
+        except Exception as e:
+            print(f"Error in runs test: {e}")
+            return None
+    
     def fit_ar_model(self, series, lags=1):
-        """Fit autoregressive model to test predictability"""
+        """
+        Fit autoregressive model to test predictability
+        
+        Parameters:
+        -----------
+        series : pd.Series
+            Time series to test
+        lags : int
+            Number of lags in the AR model
+            
+        Returns:
+        --------
+        dict
+            Dictionary with test results
+        """
         try:
             model = AutoReg(series.dropna(), lags=lags)
             model_fit = model.fit()
             
             # Extract coefficient and p-value
-            coef = model_fit.params[1] if len(model_fit.params) > 1 else 0
-            p_value = model_fit.pvalues[1] if len(model_fit.pvalues) > 1 else 1
+            coef = model_fit.params.iloc[1] if len(model_fit.params) > 1 else 0
+            p_value = model_fit.pvalues.iloc[1] if len(model_fit.pvalues) > 1 else 1
             
             return {
                 'coefficient': coef,
@@ -254,121 +363,46 @@ class MarketEfficiencyAnalyzer:
             print(f"Error in AR model: {e}")
             return None
     
-    def run_variance_ratio_test(self, returns, periods=[1, 5, 10]):
-        """Run variance ratio test (Lo-MacKinlay)"""
-        results = {}
+    def analyze_market(self, market_data, market_id=None, market_name=None):
+        """
+        Run comprehensive efficiency analysis on a market
         
-        try:
-            base_period = periods[0]
-            base_var = returns.var()
+        Parameters:
+        -----------
+        market_data : pd.DataFrame
+            Preprocessed market data with price and log_return columns
+        market_id : str or int, optional
+            ID of the market (for reporting)
+        market_name : str, optional
+            Name of the market (for reporting)
             
-            for period in periods[1:]:
-                if len(returns) < period * 5:
-                    continue
-                
-                # Aggregate returns for longer period
-                agg_returns = returns.rolling(window=period).sum().dropna()
-                period_var = agg_returns.var()
-                
-                # Calculate variance ratio
-                var_ratio = period_var / (period * base_var)
-                
-                # Interpretation
-                if 0.95 < var_ratio < 1.05:
-                    interpretation = "Random Walk"
-                elif var_ratio < 0.95:
-                    interpretation = "Mean Reversion"
-                else:
-                    interpretation = "Momentum"
-                
-                results[f"period_{period}"] = {
-                    'variance_ratio': var_ratio,
-                    'interpretation': interpretation
-                }
-        except Exception as e:
-            print(f"Error in variance ratio test: {e}")
-        
-        return results
-    
-    def analyze_time_varying_efficiency(self, returns):
-        """Analyze how efficiency changes over time"""
-        if len(returns) < 60:
-            return None
-        
-        try:
-            # Divide into three periods
-            period_size = len(returns) // 3
-            periods = {
-                'early': returns.iloc[:period_size],
-                'middle': returns.iloc[period_size:2*period_size],
-                'late': returns.iloc[2*period_size:]
+        Returns:
+        --------
+        dict
+            Dictionary with analysis results
+        """
+        if market_data is None or len(market_data) < 30:
+            print(f"Insufficient data for market {market_id or ''}")
+            return {
+                'market_id': market_id,
+                'market_name': market_name,
+                'analysis_success': False,
+                'reason': 'Insufficient data'
             }
-            
-            results = {}
-            
-            for name, period_returns in periods.items():
-                # Run tests on each period
-                acf_test = self.run_autocorrelation_test(period_returns)
-                ar_test = self.fit_ar_model(period_returns)
-                
-                results[name] = {
-                    'has_autocorrelation': acf_test['has_significant_autocorrelation'] if acf_test else None,
-                    'ar_significant': ar_test['is_significant'] if ar_test else None,
-                    'volatility': period_returns.std()
-                }
-            
-            # Determine if efficiency changed
-            if results['early']['ar_significant'] and not results['late']['ar_significant']:
-                efficiency_change = "More Efficient"
-            elif not results['early']['ar_significant'] and results['late']['ar_significant']:
-                efficiency_change = "Less Efficient"
-            else:
-                efficiency_change = "No Change"
-            
-            results['summary'] = {
-                'efficiency_change': efficiency_change,
-                'volatility_change': (results['late']['volatility'] / results['early']['volatility']) - 1
-            }
-            
-            return results
-        except Exception as e:
-            print(f"Error in time-varying efficiency analysis: {e}")
-            return None
-    
-    def analyze_market(self, market_id, verbose=False):
-        """Run comprehensive efficiency analysis on a market"""
-        # Get market details
-        details = self.get_market_details(market_id)
-        
-        if verbose:
-            print(f"\nAnalyzing market: {details['question']}")
-        
-        # Preprocess data
-        market_data = self.preprocess_market_data(market_id)
-        if market_data is None:
-            if verbose:
-                print(f"Could not process data for market {market_id}")
-            return {'id': market_id, 'question': details['question'], 'analysis_success': False}
         
         results = {
-            'id': market_id,
-            'question': details['question'],
+            'market_id': market_id,
+            'market_name': market_name,
             'analysis_success': True,
             'data_points': len(market_data)
         }
-        
-        # Add other details if available
-        for key in ['electionType', 'country', 'volumeNum']:
-            if key in details:
-                results[key] = details[key]
         
         # Run weak-form efficiency tests
         results['adf_price'] = self.run_adf_test(market_data['price'])
         results['adf_return'] = self.run_adf_test(market_data['log_return'])
         results['autocorrelation'] = self.run_autocorrelation_test(market_data['log_return'])
+        results['runs_test'] = self.run_runs_test(market_data['log_return'])
         results['ar_model'] = self.fit_ar_model(market_data['log_return'])
-        results['variance_ratio'] = self.run_variance_ratio_test(market_data['log_return'])
-        results['time_varying'] = self.analyze_time_varying_efficiency(market_data['log_return'])
         
         # Calculate an efficiency score
         results['efficiency_score'] = self.calculate_efficiency_score(results)
@@ -383,20 +417,28 @@ class MarketEfficiencyAnalyzer:
         else:
             results['efficiency_class'] = 'Highly Inefficient'
         
-        if verbose:
-            self.print_efficiency_summary(results)
-        
         return results
     
     def calculate_efficiency_score(self, results):
-        """Calculate a market efficiency score based on test results with improved parameters"""
+        """
+        Calculate a market efficiency score based on test results
+        
+        Parameters:
+        -----------
+        results : dict
+            Dictionary with test results
+            
+        Returns:
+        --------
+        float
+            Efficiency score (0-100)
+        """
         score = 0
         max_points = 0
         
         # 1. Non-stationary price series (random walk)
         if 'adf_price' in results and results['adf_price']:
             max_points += 25
-            # Higher p-value means more likely to be non-stationary (random walk)
             p_value = results['adf_price']['p_value']
             if p_value > 0.05:  # Not stationary (efficient)
                 score += 25
@@ -406,37 +448,37 @@ class MarketEfficiencyAnalyzer:
         # 2. Stationary returns
         if 'adf_return' in results and results['adf_return']:
             max_points += 25
-            # Lower p-value means more likely to be stationary
             p_value = results['adf_return']['p_value']
             if p_value < 0.01:  # Strongly stationary (efficient)
                 score += 25
             elif p_value < 0.05:  # Moderately stationary
                 score += 15
         
-        # 3. No autocorrelation in returns - more granular scoring
+        # 3. No autocorrelation in returns
         if 'autocorrelation' in results and results['autocorrelation']:
-            max_points += 25
+            max_points += 20
             sig_lags = results['autocorrelation'].get('significant_lags', [])
             
             if not sig_lags:  # No autocorrelation (efficient)
-                score += 25
+                score += 20
             elif len(sig_lags) == 1 and 1 in sig_lags:  # Only lag 1 is significant
-                score += 15
+                score += 10
             elif len(sig_lags) <= 2:  # Limited autocorrelation
-                score += 10
+                score += 5
         
-        # 4. Returns not predictable with AR model - more granular scoring
-        if 'ar_model' in results and results['ar_model']:
-            max_points += 25
-            p_value = results['ar_model']['p_value']
-            coefficient = abs(results['ar_model']['coefficient'])
-            
-            if p_value > 0.05:  # Not significant (efficient)
-                score += 25
-            elif p_value > 0.01 and coefficient < 0.2:  # Weakly significant with small coefficient
+        # 4. Randomness (runs test)
+        if 'runs_test' in results and results['runs_test']:
+            max_points += 15
+            is_random = results['runs_test'].get('is_random', False)
+            if is_random:  # Random (efficient)
                 score += 15
-            elif coefficient < 0.1:  # Very small coefficient regardless of significance
-                score += 10
+        
+        # 5. Returns not predictable with AR model
+        if 'ar_model' in results and results['ar_model']:
+            max_points += 15
+            is_significant = results['ar_model'].get('is_significant', False)
+            if not is_significant:  # Not predictable (efficient)
+                score += 15
         
         # Calculate percentage
         if max_points > 0:
@@ -444,94 +486,49 @@ class MarketEfficiencyAnalyzer:
         else:
             return 0
     
-    def print_efficiency_summary(self, results):
-        """Print a summary of efficiency test results"""
-        print("\n" + "="*60)
-        print(f"MARKET EFFICIENCY SUMMARY")
-        print("="*60)
-        print(f"Market: {results['question']}")
-        print(f"Market ID: {results['id']}")
-        if 'electionType' in results:
-            print(f"Type: {results['electionType']}")
-        if 'country' in results:
-            print(f"Country: {results['country']}")
-        print("-"*60)
+    def visualize_market(self, market_data, results, market_name=None, save_path=None):
+        """
+        Create visualizations for market efficiency analysis
         
-        print("\nEfficiency Tests:")
-        
-        # Price test
-        if 'adf_price' in results and results['adf_price']:
-            is_stationary = results['adf_price']['is_stationary']
-            print(f"  Price Series: {'Stationary (Inefficient)' if is_stationary else 'Non-stationary - Random Walk (Efficient)'}")
-            print(f"    ADF p-value: {results['adf_price']['p_value']:.4f}")
-        
-        # Returns test
-        if 'adf_return' in results and results['adf_return']:
-            is_stationary = results['adf_return']['is_stationary']
-            print(f"  Returns: {'Stationary (Efficient)' if is_stationary else 'Non-stationary (Inefficient)'}")
-            print(f"    ADF p-value: {results['adf_return']['p_value']:.4f}")
-        
-        # Autocorrelation
-        if 'autocorrelation' in results and results['autocorrelation']:
-            has_autocorr = results['autocorrelation']['has_significant_autocorrelation']
-            print(f"  Autocorrelation: {'Present (Inefficient)' if has_autocorr else 'Absent (Efficient)'}")
-            if has_autocorr:
-                print(f"    Significant lags: {results['autocorrelation']['significant_lags']}")
-        
-        # AR model
-        if 'ar_model' in results and results['ar_model']:
-            is_sig = results['ar_model']['is_significant']
-            print(f"  AR(1) Model: {'Significant (Inefficient)' if is_sig else 'Not Significant (Efficient)'}")
-            print(f"    Coefficient: {results['ar_model']['coefficient']:.6f}, p-value: {results['ar_model']['p_value']:.4f}")
-        
-        # Variance ratio
-        if 'variance_ratio' in results and results['variance_ratio']:
-            print("\n  Variance Ratio Test:")
-            for period, result in results['variance_ratio'].items():
-                print(f"    {period}: {result['variance_ratio']:.4f} - {result['interpretation']}")
-        
-        # Time-varying efficiency
-        if 'time_varying' in results and results['time_varying'] and 'summary' in results['time_varying']:
-            print("\n  Time-varying Efficiency:")
-            print(f"    Efficiency Change: {results['time_varying']['summary']['efficiency_change']}")
-            print(f"    Volatility Change: {results['time_varying']['summary']['volatility_change']*100:.1f}%")
-        
-        print("\n" + "-"*60)
-        print(f"Overall Efficiency Score: {results['efficiency_score']:.1f}/100")
-        print(f"Classification: {results['efficiency_class']}")
-        print("="*60)
-    
-    def visualize_market(self, market_id, results=None):
-        """Create visualizations for market efficiency analysis"""
-        # Get market data
-        market_data = self.preprocess_market_data(market_id)
+        Parameters:
+        -----------
+        market_data : pd.DataFrame
+            Preprocessed market data
+        results : dict
+            Dictionary with analysis results
+        market_name : str, optional
+            Name of the market (for titles)
+        save_path : str, optional
+            Path to save the visualization
+            
+        Returns:
+        --------
+        matplotlib.figure.Figure
+            Figure with visualizations
+        """
         if market_data is None:
-            print(f"Cannot create visualizations for market {market_id}: No data")
             return None
-        
-        # Get market details
-        details = self.get_market_details(market_id)
-        market_name = details['question']
         
         # Set up the figure
         fig, axs = plt.subplots(2, 2, figsize=(16, 12))
         
         # 1. Price Series
         axs[0, 0].plot(market_data.index, market_data['price'], linewidth=2)
-        axs[0, 0].set_title(f'Price Series: {market_name}', fontsize=14)
+        title = f'Price Series: {market_name or "Market"}' 
+        axs[0, 0].set_title(title, fontsize=14)
         axs[0, 0].set_xlabel('Date', fontsize=12)
         axs[0, 0].set_ylabel('Price', fontsize=12)
         axs[0, 0].grid(True, alpha=0.3)
         
         # 2. Log Returns
         axs[0, 1].plot(market_data.index, market_data['log_return'], linewidth=1, color='green')
-        axs[0, 1].set_title(f'Log Returns: {market_name}', fontsize=14)
+        axs[0, 1].set_title(f'Log Returns', fontsize=14)
         axs[0, 1].set_xlabel('Date', fontsize=12)
         axs[0, 1].set_ylabel('Log Return', fontsize=12)
         axs[0, 1].grid(True, alpha=0.3)
         
         # 3. ACF Plot
-        if results and 'autocorrelation' in results and results['autocorrelation']:
+        if 'autocorrelation' in results and results['autocorrelation']:
             acf_values = results['autocorrelation']['acf_values']
             lags = range(len(acf_values))
             
@@ -548,62 +545,78 @@ class MarketEfficiencyAnalyzer:
             axs[1, 0].set_title(title, fontsize=14)
             axs[1, 0].set_xlabel('Lag', fontsize=12)
             axs[1, 0].set_ylabel('ACF', fontsize=12)
-        else:
-            # Calculate ACF directly
-            acf_values = acf(market_data['log_return'].dropna(), nlags=10, fft=True)
-            lags = range(len(acf_values))
-            
-            axs[1, 0].bar(lags, acf_values, width=0.4)
-            
-            # Add confidence intervals
-            significance = 1.96 / np.sqrt(len(market_data))
-            axs[1, 0].axhline(y=0, linestyle='-', color='black')
-            axs[1, 0].axhline(y=significance, linestyle='--', color='red', alpha=0.7)
-            axs[1, 0].axhline(y=-significance, linestyle='--', color='red', alpha=0.7)
-            
-            axs[1, 0].set_title('Autocorrelation Function', fontsize=14)
-            axs[1, 0].set_xlabel('Lag', fontsize=12)
-            axs[1, 0].set_ylabel('ACF', fontsize=12)
         
-        # 4. Price Distribution
-        axs[1, 1].hist(market_data['price'], bins=30, alpha=0.7, density=True)
-        axs[1, 1].set_title(f'Price Distribution: {market_name}', fontsize=14)
-        axs[1, 1].set_xlabel('Price', fontsize=12)
-        axs[1, 1].set_ylabel('Density', fontsize=12)
+        # 4. Summary of efficiency tests
+        axs[1, 1].axis('off')
+        
+        # Create text for summary
+        summary_text = []
+        summary_text.append(f"Market: {market_name or 'Unknown'}")
+        summary_text.append(f"Efficiency Score: {results['efficiency_score']:.1f}/100")
+        summary_text.append(f"Classification: {results['efficiency_class']}")
+        summary_text.append("\nTest Results:")
+        
+        if 'adf_price' in results and results['adf_price']:
+            is_random_walk = not results['adf_price']['is_stationary']
+            summary_text.append(f"• Random Walk Test: {'✓' if is_random_walk else '✗'}")
+        
+        if 'adf_return' in results and results['adf_return']:
+            is_stationary = results['adf_return']['is_stationary']
+            summary_text.append(f"• Return Stationarity Test: {'✓' if is_stationary else '✗'}")
+        
+        if 'autocorrelation' in results and results['autocorrelation']:
+            no_autocorr = not results['autocorrelation']['has_significant_autocorrelation']
+            summary_text.append(f"• No Autocorrelation Test: {'✓' if no_autocorr else '✗'}")
+        
+        if 'runs_test' in results and results['runs_test']:
+            is_random = results['runs_test']['is_random']
+            summary_text.append(f"• Runs Test for Randomness: {'✓' if is_random else '✗'}")
+        
+        if 'ar_model' in results and results['ar_model']:
+            not_predictable = not results['ar_model']['is_significant']
+            summary_text.append(f"• AR Model Test: {'✓' if not_predictable else '✗'}")
+        
+        # Display text
+        axs[1, 1].text(0.1, 0.9, '\n'.join(summary_text), va='top', fontsize=12, 
+                       bbox=dict(facecolor='white', alpha=0.8))
         
         plt.tight_layout()
         
-        # Save the figure if results directory exists
-        if os.path.exists(self.results_dir):
-            safe_name = "".join(c if c.isalnum() else "_" for c in market_name)[:50]
-            filename = os.path.join(self.results_dir, f"market_{market_id}_{safe_name}.png")
-            plt.savefig(filename, dpi=300, bbox_inches='tight')
-            print(f"Visualization saved to {filename}")
+        # Save the figure if path provided
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
+            # Also save a detailed report
+            if market_name:
+                report_path = save_path.replace('.png', '_report.md')
+                self.generate_detailed_report(results, market_data, report_path)
         
         return fig
     
-    def analyze_multiple_markets(self, market_ids, verbose=False):
-        """Analyze multiple markets and compare results"""
-        results = []
+    def visualize_comparison(self, results_list, save_path=None):
+        """
+        Create visualization comparing efficiency across markets
         
-        for market_id in tqdm(market_ids, desc="Analyzing markets"):
-            result = self.analyze_market(market_id, verbose=verbose)
-            if result['analysis_success']:
-                results.append(result)
-        
-        return results
-    
-    def visualize_efficiency_comparison(self, results):
-        """Create visualization comparing efficiency across markets"""
-        if not results:
-            print("No results to visualize")
+        Parameters:
+        -----------
+        results_list : list
+            List of dictionaries with market analysis results
+        save_path : str, optional
+            Path to save the visualization
+            
+        Returns:
+        --------
+        matplotlib.figure.Figure
+            Figure with comparison visualization
+        """
+        if not results_list:
             return None
         
         # Extract key metrics
-        market_names = [r['question'][:30] + "..." if len(r['question']) > 30 else r['question'] for r in results]
-        efficiency_scores = [r['efficiency_score'] for r in results]
-        has_autocorr = [r['autocorrelation']['has_significant_autocorrelation'] if 'autocorrelation' in r and r['autocorrelation'] else None for r in results]
-        ar_significant = [r['ar_model']['is_significant'] if 'ar_model' in r and r['ar_model'] else None for r in results]
+        market_ids = [r.get('market_id', i) for i, r in enumerate(results_list)]
+        market_names = [r.get('market_name', f"Market {r.get('market_id', i)}") for i, r in enumerate(results_list)]
+        market_names = [name[:30] + "..." if name and len(name) > 30 else name for name in market_names]
+        efficiency_scores = [r.get('efficiency_score', 0) for r in results_list]
         
         # Create figure
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -612,9 +625,19 @@ class MarketEfficiencyAnalyzer:
         sorted_indices = np.argsort(efficiency_scores)
         sorted_names = [market_names[i] for i in sorted_indices]
         sorted_scores = [efficiency_scores[i] for i in sorted_indices]
+        sorted_ids = [market_ids[i] for i in sorted_indices]
         
-        # Plot efficiency scores
-        bars = ax.barh(sorted_names, sorted_scores, color='skyblue')
+        # Create DataFrame for coloring
+        data = pd.DataFrame({
+            'market_name': sorted_names,
+            'efficiency_score': sorted_scores,
+            'market_id': sorted_ids,
+            'color': ['red' if score < 40 else 'orange' if score < 60 
+                     else 'lightgreen' if score < 80 else 'green' for score in sorted_scores]
+        })
+        
+        # Plot efficiency scores with colors by category
+        bars = ax.barh(data['market_name'], data['efficiency_score'], color=data['color'])
         
         # Add efficiency classification regions
         ax.axvline(x=40, color='red', linestyle='--', alpha=0.5)
@@ -630,317 +653,77 @@ class MarketEfficiencyAnalyzer:
         ax.set_xlabel('Efficiency Score', fontsize=14)
         ax.set_xlim(0, 100)
         
-        # Save figure
+        # Add score labels
+        for i, bar in enumerate(bars):
+            ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2, 
+                   f"{data['efficiency_score'].iloc[i]:.1f}", 
+                   va='center', fontsize=10)
+        
         plt.tight_layout()
-        filename = os.path.join(self.results_dir, "efficiency_comparison.png")
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Comparison visualization saved to {filename}")
+        
+        # Save the figure if path provided
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
         
         return fig
     
-    def analyze_and_report_results(data_dir='data', results_dir='results/market_efficiency'):
+    def generate_summary_report(self, results_list):
         """
-        Analyze and report results from market efficiency tests
+        Generate a summary report of market efficiency results
         
         Parameters:
         -----------
-        data_dir : str
-            Directory with the data
-        results_dir : str
-            Directory to save results
-        
+        results_list : list
+            List of dictionaries with market analysis results
+            
         Returns:
         --------
         dict
-            Dictionary with summarized results
+            Dictionary with summary statistics
         """
-        # Make sure the results directory exists
-        os.makedirs(results_dir, exist_ok=True)
+        if not results_list:
+            return {}
         
-        # Load comprehensive results if they exist
-        results_file = os.path.join(results_dir, 'comprehensive_results.json')
+        # Extract successful analyses
+        successful = [r for r in results_list if r.get('analysis_success', False)]
+        total_markets = len(successful)
         
-        if os.path.exists(results_file):
-            with open(results_file, 'r') as f:
-                results = json.load(f)
-        else:
-            # Run the analysis if results don't exist
-            results = run_comprehensive_analysis(data_dir, results_dir, market_count=30, verbose=True)
+        if total_markets == 0:
+            return {'error': 'No successful analyses'}
         
-        if not results:
-            print("No results available")
-            return None
+        # Calculate aggregate statistics
+        efficiency_scores = [r.get('efficiency_score', 0) for r in successful]
         
-        # Create a summary of the results
-        summary = {
-            'weak_form': {},
-            'time_varying': {},
-            'strong_form': {},
-            'insights': []
+        # Count by classification
+        classifications = {}
+        for r in successful:
+            if 'efficiency_class' in r:
+                cls = r['efficiency_class']
+                classifications[cls] = classifications.get(cls, 0) + 1
+        
+        # Count test results
+        test_results = {
+            'random_walk_prices': sum(1 for r in successful if r.get('adf_price', {}).get('is_stationary', True) == False),
+            'stationary_returns': sum(1 for r in successful if r.get('adf_return', {}).get('is_stationary', False) == True),
+            'no_autocorrelation': sum(1 for r in successful if r.get('autocorrelation', {}).get('has_significant_autocorrelation', True) == False),
+            'random_runs': sum(1 for r in successful if r.get('runs_test', {}).get('is_random', False) == True),
+            'unpredictable_ar': sum(1 for r in successful if r.get('ar_model', {}).get('is_significant', True) == False)
         }
         
-        # 1. Weak-form efficiency summary
-        if 'aggregate' in results:
-            agg = results['aggregate']
-            summary['weak_form'] = {
-                'avg_score': agg.get('avg_efficiency_score', None),
-                'median_score': agg.get('median_efficiency_score', None),
-                'classes': agg.get('efficiency_classes', {})
-            }
-            
-            # Analyze by market type
-            if 'weak_form' in results and 'results' in results['weak_form']:
-                market_types = {}
-                
-                for result in results['weak_form']['results']:
-                    if 'electionType' in result and result['electionType']:
-                        market_type = result['electionType']
-                        
-                        if market_type not in market_types:
-                            market_types[market_type] = []
-                        
-                        market_types[market_type].append(result['efficiency_score'])
-                
-                # Calculate average scores by type
-                avg_by_type = {}
-                for market_type, scores in market_types.items():
-                    if len(scores) >= 2:  # Need at least 2 markets
-                        avg_by_type[market_type] = np.mean(scores)
-                
-                summary['weak_form']['by_type'] = avg_by_type
+        # Convert to percentages
+        test_percentages = {k: v / total_markets * 100 for k, v in test_results.items()}
         
-        # 2. Time-varying efficiency summary
-        if 'time_varying' in results:
-            tv = results['time_varying']
-            
-            if 'efficiency_changes' in tv:
-                summary['time_varying']['changes'] = tv['efficiency_changes']
-            
-            if 'avg_volatility_change' in tv:
-                summary['time_varying']['volatility_change'] = tv['avg_volatility_change']
-            
-            # Analyze trends
-            if 'changes' in summary['time_varying']:
-                changes = summary['time_varying']['changes']
-                total = sum(changes.values())
-                
-                if total > 0:
-                    more_efficient_pct = changes.get('More Efficient', 0) / total * 100
-                    less_efficient_pct = changes.get('Less Efficient', 0) / total * 100
-                    
-                    if more_efficient_pct > 60:
-                        summary['insights'].append("Markets tend to become more efficient over their lifecycle")
-                    elif less_efficient_pct > 60:
-                        summary['insights'].append("Markets tend to become less efficient over their lifecycle")
-                    else:
-                        summary['insights'].append("No clear trend in efficiency changes over market lifecycle")
-        
-        # 3. Strong-form efficiency summary
-        if 'strong_form' in results:
-            sf = results['strong_form']
-            
-            if 'avg_speed_of_adjustment' in sf:
-                summary['strong_form']['speed_of_adjustment'] = sf['avg_speed_of_adjustment']
-            
-            if 'avg_volatility_ratio' in sf:
-                summary['strong_form']['volatility_ratio'] = sf['avg_volatility_ratio']
-            
-            # Analyze efficiency based on speed of adjustment
-            if 'speed_of_adjustment' in summary['strong_form']:
-                speed = summary['strong_form']['speed_of_adjustment']
-                
-                if speed > 0.8:
-                    summary['insights'].append("Markets respond very quickly to new information, indicating strong-form efficiency")
-                elif speed > 0.5:
-                    summary['insights'].append("Markets show moderate speed in incorporating new information")
-                else:
-                    summary['insights'].append("Markets show relatively slow adjustment to new information")
-        
-        # 4. Generate overall insights
-        if 'weak_form' in summary and 'avg_score' in summary['weak_form']:
-            avg_score = summary['weak_form']['avg_score']
-            
-            if avg_score >= 75:
-                summary['insights'].append("Polymarket election markets are generally highly efficient")
-            elif avg_score >= 60:
-                summary['insights'].append("Polymarket election markets show moderate efficiency")
-            elif avg_score >= 45:
-                summary['insights'].append("Polymarket election markets show mixed efficiency")
-            else:
-                summary['insights'].append("Polymarket election markets show significant inefficiencies")
-        
-        # Additional insights based on market type comparison
-        if 'weak_form' in summary and 'by_type' in summary['weak_form']:
-            by_type = summary['weak_form']['by_type']
-            
-            if by_type:
-                # Find most and least efficient types
-                most_efficient = max(by_type.items(), key=lambda x: x[1])
-                least_efficient = min(by_type.items(), key=lambda x: x[1])
-                
-                if most_efficient[1] - least_efficient[1] > 15:  # Significant difference
-                    summary['insights'].append(f"{most_efficient[0]} markets are notably more efficient than {least_efficient[0]} markets")
-        
-        # Save the summarized results
-        with open(os.path.join(results_dir, 'results_summary.json'), 'w') as f:
-            json.dump(summary, f, indent=2)
+        # Create summary
+        summary = {
+            'total_markets': total_markets,
+            'avg_efficiency_score': np.mean(efficiency_scores),
+            'median_efficiency_score': np.median(efficiency_scores),
+            'std_efficiency_score': np.std(efficiency_scores),
+            'min_efficiency_score': min(efficiency_scores),
+            'max_efficiency_score': max(efficiency_scores),
+            'classifications': classifications,
+            'test_results': test_results,
+            'test_percentages': test_percentages
+        }
         
         return summary
-
-    def generate_report(summary, results_dir='results/market_efficiency'):
-        """
-        Generate a report for the thesis based on the results
-        
-        Parameters:
-        -----------
-        summary : dict
-            Dictionary with summarized results
-        results_dir : str
-            Directory with result files
-        
-        Returns:
-        --------
-        str
-            Path to the generated report
-        """
-        report_lines = []
-        
-        # Create report header
-        report_lines.append("# Market Efficiency Analysis of Polymarket Election Markets")
-        report_lines.append("\n## Executive Summary")
-        
-        # Add insights
-        if 'insights' in summary and summary['insights']:
-            report_lines.append("\nKey findings from the analysis:")
-            for insight in summary['insights']:
-                report_lines.append(f"- {insight}")
-        
-        # Add weak-form efficiency results
-        report_lines.append("\n## Weak-Form Efficiency")
-        
-        if 'weak_form' in summary:
-            wf = summary['weak_form']
-            
-            if 'avg_score' in wf:
-                report_lines.append(f"\nThe average efficiency score across analyzed markets is {wf['avg_score']:.2f}/100.")
-            
-            if 'classes' in wf:
-                classes = wf['classes']
-                total = sum(classes.values())
-                
-                report_lines.append("\nMarkets were classified as follows:")
-                for cls, count in classes.items():
-                    report_lines.append(f"- {cls}: {count} markets ({count/total*100:.1f}%)")
-            
-            if 'by_type' in wf and wf['by_type']:
-                report_lines.append("\n### Efficiency by Market Type")
-                report_lines.append("\nAverage efficiency scores by market type:")
-                
-                # Sort by efficiency score
-                sorted_types = sorted(wf['by_type'].items(), key=lambda x: x[1], reverse=True)
-                
-                for market_type, score in sorted_types:
-                    report_lines.append(f"- {market_type}: {score:.2f}/100")
-                
-                # Add figure reference
-                report_lines.append("\n![Efficiency by Market Type](efficiency_by_market_type.png)")
-        
-        # Add time-varying efficiency results
-        report_lines.append("\n## Time-Varying Efficiency")
-        
-        if 'time_varying' in summary:
-            tv = summary['time_varying']
-            
-            if 'changes' in tv:
-                changes = tv['changes']
-                total = sum(changes.values())
-                
-                report_lines.append("\nEfficiency changes over market lifecycle:")
-                for change, count in changes.items():
-                    report_lines.append(f"- {change}: {count} markets ({count/total*100:.1f}%)")
-                
-                # Add figure reference
-                report_lines.append("\n![Time-varying Efficiency Changes](time_varying_efficiency_changes.png)")
-            
-            if 'volatility_change' in tv:
-                vol_change = tv['volatility_change'] * 100
-                direction = "increased" if vol_change > 0 else "decreased"
-                report_lines.append(f"\nReturn volatility {direction} by an average of {abs(vol_change):.1f}% from early to late market periods.")
-        
-        # Add strong-form efficiency results
-        report_lines.append("\n## Strong-Form Efficiency")
-        
-        if 'strong_form' in summary:
-            sf = summary['strong_form']
-            
-            if 'speed_of_adjustment' in sf:
-                speed = sf['speed_of_adjustment']
-                report_lines.append(f"\nThe average speed of price adjustment to significant events is {speed:.4f}, " + 
-                                f"suggesting that {'most' if speed > 0.7 else 'some' if speed > 0.4 else 'limited'} " + 
-                                f"price adjustment happens within the first hour after an event.")
-            
-            if 'volatility_ratio' in sf:
-                vol_ratio = sf['volatility_ratio']
-                report_lines.append(f"\nThe ratio of post-event to pre-event volatility is {vol_ratio:.2f}, " + 
-                                f"indicating {'significantly higher' if vol_ratio > 1.5 else 'higher' if vol_ratio > 1.1 else 'similar' if vol_ratio > 0.9 else 'lower'} " + 
-                                f"volatility after significant events.")
-            
-            # Add figure reference
-            report_lines.append("\n![Average Event Response](avg_event_response.png)")
-        
-        # Add conclusion
-        report_lines.append("\n## Conclusion")
-        
-        # Craft conclusion based on results
-        if 'weak_form' in summary and 'avg_score' in summary['weak_form']:
-            avg_score = summary['weak_form']['avg_score']
-            
-            if avg_score >= 75:
-                report_lines.append("\nPolymarket election markets exhibit high levels of efficiency, with most markets following random walk patterns consistent with the Efficient Market Hypothesis. These findings suggest that these prediction markets effectively aggregate information and provide reliable forecasts of electoral outcomes.")
-            elif avg_score >= 60:
-                report_lines.append("\nPolymarket election markets demonstrate moderate efficiency. While many markets follow patterns consistent with the Efficient Market Hypothesis, there is evidence of some predictability in price movements. This suggests opportunities for sophisticated traders to potentially exploit market inefficiencies while still providing reasonably reliable forecasts.")
-            elif avg_score >= 45:
-                report_lines.append("\nPolymarket election markets show mixed efficiency with substantial variation across market types. The presence of predictable patterns in many markets suggests significant opportunities for informed traders, while also raising questions about the reliability of these markets as pure forecasting tools.")
-            else:
-                report_lines.append("\nPolymarket election markets exhibit notable inefficiencies, with substantial evidence of predictable patterns across most markets. These findings challenge the application of the Efficient Market Hypothesis to these prediction markets and suggest caution when interpreting market prices as probability forecasts.")
-        
-        # Additional conclusion points
-        if 'time_varying' in summary and 'changes' in summary['time_varying']:
-            changes = summary['time_varying']['changes']
-            total = sum(changes.values())
-            
-            if total > 0:
-                more_efficient_pct = changes.get('More Efficient', 0) / total * 100
-                less_efficient_pct = changes.get('Less Efficient', 0) / total * 100
-                
-                if more_efficient_pct > 60:
-                    report_lines.append("\nMarkets tend to become more efficient over their lifecycle, suggesting that information aggregation improves as more traders participate and more information becomes available.")
-                elif less_efficient_pct > 60:
-                    report_lines.append("\nMarkets tend to become less efficient over their lifecycle, which may indicate increasing influence of non-information-based trading or herding behavior as elections approach.")
-        
-        # Add implications section
-        report_lines.append("\n## Implications")
-        report_lines.append("\nThese findings have several implications for different stakeholders:")
-        
-        report_lines.append("\n### For Traders")
-        report_lines.append("- Trading strategies should be tailored to market type, as efficiency varies significantly across election categories")
-        report_lines.append("- Markets may present exploitable patterns despite overall moderate efficiency")
-        report_lines.append("- Attention to the timing of trades is important as efficiency changes throughout market lifecycle")
-        
-        report_lines.append("\n### For Platform Operators")
-        report_lines.append("- Market design and incentives can be optimized to improve efficiency where lacking")
-        report_lines.append("- Promoting liquidity in certain market types may enhance information aggregation")
-        report_lines.append("- Monitoring for manipulative trading is particularly important in less efficient markets")
-        
-        report_lines.append("\n### For Users of Forecasts")
-        report_lines.append("- Prediction market prices should be interpreted with an understanding of varying efficiency")
-        report_lines.append("- Complementing market forecasts with other methods may provide more robust predictions")
-        report_lines.append("- Special attention should be paid to how markets respond to significant news events")
-        
-        # Save the report
-        report_path = os.path.join(results_dir, "market_efficiency_report.md")
-        with open(report_path, "w") as f:
-            f.write("\n".join(report_lines))
-        
-        print(f"Report generated at: {report_path}")
-        return report_path
