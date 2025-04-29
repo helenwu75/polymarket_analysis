@@ -24,6 +24,21 @@ except ImportError:
 else:
     from src.knowledge_value.market_efficiency import MarketEfficiencyAnalyzer
 
+def json_serializable(obj):
+    """Convert non-serializable objects to serializable ones for JSON"""
+    if isinstance(obj, (np.integer, np.int64)):
+        return int(obj)
+    if isinstance(obj, (np.floating, np.float64)):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, pd.DataFrame):
+        return obj.to_dict()
+    if isinstance(obj, pd.Series):
+        return obj.to_dict()
+    # Add this line to handle any other non-serializable objects
+    return str(obj)
+
 def run_efficiency_analysis(market_selection, results_dir='results/market_efficiency', verbose=True):
     """
     Run market efficiency analysis on selected markets
@@ -161,11 +176,11 @@ def run_efficiency_analysis(market_selection, results_dir='results/market_effici
     
     # Save individual results
     with open(os.path.join(run_dir, "market_results.json"), 'w') as f:
-        json.dump(results_list, f, indent=2)
+        json.dump(results_list, f, indent=2, default=json_serializable)
     
     # Save summary
     with open(os.path.join(run_dir, "summary.json"), 'w') as f:
-        json.dump(summary, f, indent=2)
+        json.dump(summary, f, indent=2, default=json_serializable)
     
     # Print summary statistics
     if verbose and 'total_markets' in summary:
