@@ -45,6 +45,9 @@ class MarketEfficiencyAnalyzer:
         if trade_data is None or len(trade_data) < 30:
             print("Insufficient trade data for analysis")
             return None
+        # Add this check in preprocess_market_data
+        if 'token_type' in trade_data.columns and len(trade_data['token_type'].unique()) > 1:
+            print("Warning: Mixed token types detected in trade data. Results may be inconsistent.")
             
         try:
             # Ensure timestamp is datetime
@@ -485,10 +488,9 @@ class MarketEfficiencyAnalyzer:
             return (score / max_points) * 100
         else:
             return 0
-    
-    def visualize_market(self, market_data, results, market_name=None, save_path=None):
+    def visualize_market(market_data, results, market_name=None, save_path=None, academic_style=True):
         """
-        Create visualizations for market efficiency analysis
+        Create enhanced academic-style visualizations for market efficiency analysis
         
         Parameters:
         -----------
@@ -500,6 +502,8 @@ class MarketEfficiencyAnalyzer:
             Name of the market (for titles)
         save_path : str, optional
             Path to save the visualization
+        academic_style : bool
+            Whether to use academic styling (serif fonts, etc.)
             
         Returns:
         --------
@@ -509,93 +513,170 @@ class MarketEfficiencyAnalyzer:
         if market_data is None:
             return None
         
-        # Set up the figure
-        fig, axs = plt.subplots(2, 2, figsize=(16, 12))
+        # Set academic style if requested
+        if academic_style:
+            plt.rcParams.update({
+                'font.family': 'serif',
+                'font.serif': ['Times New Roman', 'Computer Modern Roman'],
+                'font.size': 11,
+                'axes.titlesize': 12,
+                'axes.titleweight': 'bold',
+                'axes.labelsize': 11,
+                'xtick.labelsize': 10,
+                'ytick.labelsize': 10,
+                'legend.fontsize': 9,
+                'figure.dpi': 300,
+                'savefig.dpi': 300,
+                'savefig.bbox': 'tight',
+                'savefig.pad_inches': 0.1
+            })
         
-        # 1. Price Series
-        axs[0, 0].plot(market_data.index, market_data['price'], linewidth=2)
-        title = f'Price Series: {market_name or "Market"}' 
-        axs[0, 0].set_title(title, fontsize=14)
-        axs[0, 0].set_xlabel('Date', fontsize=12)
-        axs[0, 0].set_ylabel('Price', fontsize=12)
-        axs[0, 0].grid(True, alpha=0.3)
+        # Set up the figure with more precise layout
+        fig = plt.figure(figsize=(9, 10))
         
-        # 2. Log Returns
-        axs[0, 1].plot(market_data.index, market_data['log_return'], linewidth=1, color='green')
-        axs[0, 1].set_title(f'Log Returns', fontsize=14)
-        axs[0, 1].set_xlabel('Date', fontsize=12)
-        axs[0, 1].set_ylabel('Log Return', fontsize=12)
-        axs[0, 1].grid(True, alpha=0.3)
+        # Define grid layout with GridSpec for better control
+        gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 1], width_ratios=[1, 1], 
+                            hspace=0.3, wspace=0.2)
         
-        # 3. ACF Plot
+        # Create axes for each subplot
+        ax1 = fig.add_subplot(gs[0, 0])  # Price series
+        ax2 = fig.add_subplot(gs[0, 1])  # Log returns
+        ax3 = fig.add_subplot(gs[1, :])  # Autocorrelation
+        ax4 = fig.add_subplot(gs[2, :])  # Summary box (will be invisible)
+        
+        # 1. Price Series - Enhanced
+        market_data['price'].plot(ax=ax1, linewidth=1.2, color='navy')
+        title = f'Price Series' 
+        if market_name:
+            ax1.set_title(market_name, fontsize=12, fontweight='bold')
+        else:
+            ax1.set_title(title, fontsize=12, fontweight='bold')
+        
+        ax1.set_xlabel('Date', fontsize=11)
+        ax1.set_ylabel('Price', fontsize=11)
+        ax1.grid(True, alpha=0.3, linestyle='--')
+        
+        # Add min/max/mean lines for price
+        price_min = market_data['price'].min()
+        price_max = market_data['price'].max()
+        price_mean = market_data['price'].mean()
+        
+        ax1.axhline(y=price_mean, color='darkred', linestyle='-', linewidth=1, alpha=0.6, 
+                    label=f'Mean: {price_mean:.4f}')
+        
+        # Improve x-axis formatting
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        ax1.tick_params(axis='x', rotation=45)
+        
+        # Add legend
+        ax1.legend(frameon=True, framealpha=0.7, fontsize=9)
+        
+        # 2. Log Returns - Enhanced
+        market_data['log_return'].plot(ax=ax2, linewidth=0.8, color='darkgreen', alpha=0.8)
+        ax2.set_title('Log Returns', fontsize=12, fontweight='bold')
+        ax2.set_xlabel('Date', fontsize=11)
+        ax2.set_ylabel('Log Return', fontsize=11)
+        ax2.grid(True, alpha=0.3, linestyle='--')
+        
+        # Improve x-axis formatting
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        ax2.tick_params(axis='x', rotation=45)
+        
+        # Add volatility annotation
+        volatility = market_data['log_return'].std()
+        ax2.annotate(f'Volatility: {volatility:.4f}', 
+                    xy=(0.05, 0.95), xycoords='axes fraction',
+                    bbox=dict(boxstyle="round,pad=0.3", fc="w", ec="k", alpha=0.7),
+                    fontsize=9)
+        
+        # 3. ACF Plot - Enhanced
         if 'autocorrelation' in results and results['autocorrelation']:
             acf_values = results['autocorrelation']['acf_values']
             lags = range(len(acf_values))
             
-            axs[1, 0].bar(lags, acf_values, width=0.4)
+            # Plot ACF bars
+            bars = ax3.bar(lags, acf_values, width=0.3, color='indigo', alpha=0.8)
             
-            # Add confidence intervals
+            # Add confidence intervals with better visibility
             significance = 1.96 / np.sqrt(len(market_data))
-            axs[1, 0].axhline(y=0, linestyle='-', color='black')
-            axs[1, 0].axhline(y=significance, linestyle='--', color='red', alpha=0.7)
-            axs[1, 0].axhline(y=-significance, linestyle='--', color='red', alpha=0.7)
+            ax3.axhline(y=0, linestyle='-', color='black', linewidth=1)
+            ax3.axhline(y=significance, linestyle='--', color='crimson', linewidth=1.2, alpha=0.7,
+                    label=f'95% Confidence ({significance:.3f})')
+            ax3.axhline(y=-significance, linestyle='--', color='crimson', linewidth=1.2, alpha=0.7)
             
+            # Highlight significant lags
+            significant_lags = results['autocorrelation'].get('significant_lags', [])
+            for lag in significant_lags:
+                if lag < len(bars):
+                    bars[lag].set_color('red')
+                    bars[lag].set_alpha(1.0)
+            
+            # Better title with test results
             has_autocorr = results['autocorrelation']['has_significant_autocorrelation']
             title = f'Autocorrelation Function: {"Significant" if has_autocorr else "Not Significant"}'
-            axs[1, 0].set_title(title, fontsize=14)
-            axs[1, 0].set_xlabel('Lag', fontsize=12)
-            axs[1, 0].set_ylabel('ACF', fontsize=12)
+            ax3.set_title(title, fontsize=12, fontweight='bold')
+            ax3.set_xlabel('Lag', fontsize=11)
+            ax3.set_ylabel('ACF', fontsize=11)
+            ax3.grid(axis='y', alpha=0.3, linestyle='--')
+            ax3.legend(loc='upper right')
         
-        # 4. Summary of efficiency tests
-        axs[1, 1].axis('off')
+        # 4. Summary of efficiency tests in a professional box
+        ax4.axis('off')
         
-        # Create text for summary
+        # Create text for summary with improved formatting
         summary_text = []
         summary_text.append(f"Market: {market_name or 'Unknown'}")
         summary_text.append(f"Efficiency Score: {results['efficiency_score']:.1f}/100")
         summary_text.append(f"Classification: {results['efficiency_class']}")
         summary_text.append("\nTest Results:")
         
+        # Use check marks and cross marks for clarity
         if 'adf_price' in results and results['adf_price']:
             is_random_walk = not results['adf_price']['is_stationary']
-            summary_text.append(f"• Random Walk Test: {'✓' if is_random_walk else '✗'}")
+            summary_text.append(f"• Random Walk Test: {'✓' if is_random_walk else '✗'} (p={results['adf_price']['p_value']:.4f})")
         
         if 'adf_return' in results and results['adf_return']:
             is_stationary = results['adf_return']['is_stationary']
-            summary_text.append(f"• Return Stationarity Test: {'✓' if is_stationary else '✗'}")
+            summary_text.append(f"• Return Stationarity Test: {'✓' if is_stationary else '✗'} (p={results['adf_return']['p_value']:.4f})")
         
         if 'autocorrelation' in results and results['autocorrelation']:
             no_autocorr = not results['autocorrelation']['has_significant_autocorrelation']
-            summary_text.append(f"• No Autocorrelation Test: {'✓' if no_autocorr else '✗'}")
+            sig_lags = results['autocorrelation'].get('significant_lags', [])
+            summary_text.append(f"• No Autocorrelation Test: {'✓' if no_autocorr else '✗'} " + 
+                            (f"(lags: {sig_lags})" if sig_lags else ""))
         
         if 'runs_test' in results and results['runs_test']:
             is_random = results['runs_test']['is_random']
-            summary_text.append(f"• Runs Test for Randomness: {'✓' if is_random else '✗'}")
+            summary_text.append(f"• Runs Test for Randomness: {'✓' if is_random else '✗'} (p={results['runs_test']['p_value']:.4f})")
         
         if 'ar_model' in results and results['ar_model']:
             not_predictable = not results['ar_model']['is_significant']
-            summary_text.append(f"• AR Model Test: {'✓' if not_predictable else '✗'}")
+            summary_text.append(f"• AR Model Test: {'✓' if not_predictable else '✗'} (p={results['ar_model']['p_value']:.4f})")
         
-        # Display text
-        axs[1, 1].text(0.1, 0.9, '\n'.join(summary_text), va='top', fontsize=12, 
-                       bbox=dict(facecolor='white', alpha=0.8))
+        # Create a more professional-looking text box
+        props = dict(boxstyle='round,pad=1', facecolor='whitesmoke', alpha=0.9, edgecolor='gray')
+        ax4.text(0.5, 0.5, '\n'.join(summary_text), va='center', ha='center', fontsize=11,
+                bbox=props, transform=ax4.transAxes)
         
-        plt.tight_layout()
+        # Add a figure title with more detail
+        plt.suptitle(f"Market Efficiency Analysis: {market_name}", 
+                    fontsize=14, fontweight='bold', y=0.98)
+        
+        # Add footer with data information
+        time_range = f"Time Period: {market_data.index.min().strftime('%Y-%m-%d')} to {market_data.index.max().strftime('%Y-%m-%d')}"
+        plt.figtext(0.5, 0.01, time_range, ha='center', fontsize=9, style='italic')
+        
+        plt.tight_layout(rect=[0, 0.03, 1, 0.96])
         
         # Save the figure if path provided
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
-
-            # Also save a detailed report
-            if market_name:
-                report_path = save_path.replace('.png', '_report.md')
-                self.generate_detailed_report(results, market_data, report_path)
         
         return fig
     
-    def visualize_comparison(self, results_list, save_path=None):
+    def visualize_comparison(results_list, save_path=None, academic_style=True):
         """
-        Create visualization comparing efficiency across markets
+        Create enhanced academic-style visualization comparing efficiency across markets
         
         Parameters:
         -----------
@@ -603,6 +684,8 @@ class MarketEfficiencyAnalyzer:
             List of dictionaries with market analysis results
         save_path : str, optional
             Path to save the visualization
+        academic_style : bool
+            Whether to use academic styling (serif fonts, etc.)
             
         Returns:
         --------
@@ -612,13 +695,33 @@ class MarketEfficiencyAnalyzer:
         if not results_list:
             return None
         
+        # Set academic style if requested
+        if academic_style:
+            plt.rcParams.update({
+                'font.family': 'serif',
+                'font.serif': ['Times New Roman', 'Computer Modern Roman'],
+                'font.size': 11,
+                'axes.titlesize': 14,
+                'axes.titleweight': 'bold',
+                'axes.labelsize': 12,
+                'xtick.labelsize': 10,
+                'ytick.labelsize': 10,
+                'legend.fontsize': 10,
+                'figure.dpi': 300,
+                'savefig.dpi': 300,
+                'savefig.bbox': 'tight',
+                'savefig.pad_inches': 0.1
+            })
+        
         # Extract key metrics
         market_ids = [r.get('market_id', i) for i, r in enumerate(results_list)]
         market_names = [r.get('market_name', f"Market {r.get('market_id', i)}") for i, r in enumerate(results_list)]
-        market_names = [name[:30] + "..." if name and len(name) > 30 else name for name in market_names]
+        # Truncate long market names
+        market_names = [name[:40] + "..." if name and len(name) > 40 else name for name in market_names]
         efficiency_scores = [r.get('efficiency_score', 0) for r in results_list]
+        efficiency_classes = [r.get('efficiency_class', 'Unknown') for r in results_list]
         
-        # Create figure
+        # Create figure with increased size for readability
         fig, ax = plt.subplots(figsize=(12, 8))
         
         # Sort by efficiency score
@@ -626,38 +729,70 @@ class MarketEfficiencyAnalyzer:
         sorted_names = [market_names[i] for i in sorted_indices]
         sorted_scores = [efficiency_scores[i] for i in sorted_indices]
         sorted_ids = [market_ids[i] for i in sorted_indices]
+        sorted_classes = [efficiency_classes[i] for i in sorted_indices]
         
-        # Create DataFrame for coloring
-        data = pd.DataFrame({
-            'market_name': sorted_names,
-            'efficiency_score': sorted_scores,
-            'market_id': sorted_ids,
-            'color': ['red' if score < 40 else 'orange' if score < 60 
-                     else 'lightgreen' if score < 80 else 'green' for score in sorted_scores]
-        })
+        # Create color map based on efficiency classes
+        color_map = {
+            'Highly Inefficient': 'firebrick',
+            'Slightly Inefficient': 'darkorange',
+            'Moderately Efficient': 'mediumseagreen',
+            'Highly Efficient': 'forestgreen'
+        }
+        bar_colors = [color_map.get(cls, 'gray') for cls in sorted_classes]
         
-        # Plot efficiency scores with colors by category
-        bars = ax.barh(data['market_name'], data['efficiency_score'], color=data['color'])
+        # Plot efficiency scores with improved styling
+        bars = ax.barh(sorted_names, sorted_scores, color=bar_colors, height=0.6, 
+                    edgecolor='black', linewidth=0.5, alpha=0.8)
         
-        # Add efficiency classification regions
-        ax.axvline(x=40, color='red', linestyle='--', alpha=0.5)
-        ax.axvline(x=60, color='orange', linestyle='--', alpha=0.5)
-        ax.axvline(x=80, color='green', linestyle='--', alpha=0.5)
+        # Add efficiency classification regions with more subtle coloring
+        ax.axvspan(0, 40, alpha=0.1, color='firebrick', zorder=0)
+        ax.axvspan(40, 60, alpha=0.1, color='darkorange', zorder=0)
+        ax.axvspan(60, 80, alpha=0.1, color='mediumseagreen', zorder=0)
+        ax.axvspan(80, 100, alpha=0.1, color='forestgreen', zorder=0)
         
-        ax.text(20, len(sorted_names) - 0.5, "Highly Inefficient", rotation=90, va='top', alpha=0.7)
-        ax.text(50, len(sorted_names) - 0.5, "Slightly Inefficient", rotation=90, va='top', alpha=0.7)
-        ax.text(70, len(sorted_names) - 0.5, "Moderately Efficient", rotation=90, va='top', alpha=0.7)
-        ax.text(90, len(sorted_names) - 0.5, "Highly Efficient", rotation=90, va='top', alpha=0.7)
+        # Add vertical lines at thresholds with improved appearance
+        ax.axvline(x=40, color='firebrick', linestyle='--', alpha=0.5, linewidth=1.2, zorder=1)
+        ax.axvline(x=60, color='darkorange', linestyle='--', alpha=0.5, linewidth=1.2, zorder=1)
+        ax.axvline(x=80, color='forestgreen', linestyle='--', alpha=0.5, linewidth=1.2, zorder=1)
         
-        ax.set_title('Market Efficiency Comparison', fontsize=16)
-        ax.set_xlabel('Efficiency Score', fontsize=14)
+        # Add classification labels in a more academic style
+        ax.text(20, len(sorted_names) + 0.2, "Highly Inefficient", ha='center', 
+            fontsize=10, style='italic', color='darkred', zorder=5)
+        ax.text(50, len(sorted_names) + 0.2, "Slightly Inefficient", ha='center', 
+            fontsize=10, style='italic', color='darkred', zorder=5)
+        ax.text(70, len(sorted_names) + 0.2, "Moderately Efficient", ha='center', 
+            fontsize=10, style='italic', color='darkgreen', zorder=5)
+        ax.text(90, len(sorted_names) + 0.2, "Highly Efficient", ha='center', 
+            fontsize=10, style='italic', color='darkgreen', zorder=5)
+        
+        # Improve title and labels
+        ax.set_title('Market Efficiency Comparison', fontsize=14, fontweight='bold', pad=20)
+        ax.set_xlabel('Efficiency Score (0-100)', fontsize=12, fontweight='bold')
         ax.set_xlim(0, 100)
         
-        # Add score labels
+        # Improve y-axis appearance
+        ax.tick_params(axis='y', which='major', labelsize=10)
+        
+        # Add grid for readability
+        ax.grid(axis='x', linestyle='--', alpha=0.3, zorder=0)
+        
+        # Add score labels with improved styling
         for i, bar in enumerate(bars):
             ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2, 
-                   f"{data['efficiency_score'].iloc[i]:.1f}", 
-                   va='center', fontsize=10)
+                f"{sorted_scores[i]:.1f}", 
+                va='center', ha='left', fontsize=10, fontweight='bold')
+        
+        # Add summary statistics as an annotation
+        avg_score = np.mean(efficiency_scores)
+        median_score = np.median(efficiency_scores)
+        std_score = np.std(efficiency_scores)
+        
+        stats_text = (f"Average: {avg_score:.1f}\nMedian: {median_score:.1f}\n"
+                    f"Std Dev: {std_score:.1f}\nN = {len(efficiency_scores)}")
+        
+        props = dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.9, edgecolor='gray')
+        ax.text(0.98, 0.02, stats_text, transform=ax.transAxes, fontsize=10,
+            verticalalignment='bottom', horizontalalignment='right', bbox=props)
         
         plt.tight_layout()
         

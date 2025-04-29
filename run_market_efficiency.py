@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
+import numpy as np
 
 # Add parent directory to path for importing utilities
 current_dir = os.getcwd()
